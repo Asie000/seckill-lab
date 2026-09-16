@@ -1,0 +1,28 @@
+# ============================================================
+# 公共配置（所有环境共享）
+# ============================================================
+spring:
+  application:
+    name: seckill-lab
+  # 默认激活 dev，部署时用 --spring.profiles.active=prod 覆盖
+  profiles:
+    active: dev
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+
+server:
+  port: 8080
+
+mybatis-plus:
+  # XML 映射文件位置
+  mapper-locations: classpath*:mapper/**/*.xml
+  # 实体别名包（XML 中可用简名，如 resultType="Goods"）
+  type-aliases-package: com.lsy.seckill.modules.**.entity
+  configuration:
+    # 数据库下划线字段 -> Java 驼峰属性
+    map-underscore-to-camel-case: true
+
+logging:
+  level:
+    com.lsy.seckill: debug

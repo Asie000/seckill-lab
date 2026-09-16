@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lsy.seckill.modules.goods.mapper.GoodsMapper">
+
+    <!-- 分页查询（分页由 MyBatis-Plus 分页插件自动拼接 LIMIT） -->
+    <select id="selectPageByName" resultType="com.lsy.seckill.modules.goods.entity.Goods">
+        SELECT id, name, price, stock, status, create_time, update_time
+        FROM goods
+        <where>
+            <if test="name != null and name != ''">
+                name LIKE CONCAT('%', #{name}, '%')
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <!-- 原子扣减库存：WHERE 中判断剩余库存，避免并发超卖 -->
+    <update id="deductStock">
+        UPDATE goods
+        SET stock = stock - #{quantity},
+            update_time = NOW()
+        WHERE id = #{goodsId}
+          AND stock &gt;= #{quantity}
+    </update>
+
+</mapper>
