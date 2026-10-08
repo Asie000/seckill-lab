@@ -31,11 +31,4 @@ public interface GoodsService {
      * @return 新商品 ID
      */
     Long create(GoodsCreateRequest request);
-
-    /**
-     * 扣减库存（数据库原子扣减版本，后续可演进为 Redis 预扣减 + MQ 异步落库）
-     *
-     * @throws com.lsy.seckill.common.exception.BusinessException 库存不足时抛出
-     */
-    void deductStock(Long goodsId, int quantity);
 }

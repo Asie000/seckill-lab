@@ -1177,7 +1177,7 @@ docs/reports/data/<tag>-<concurrency>-run<N>.csv
 | # | 问题 | 选项 | 我的推荐 |
 |---|---|---|---|
 | ~~Q1~~ | ~~MySQL 宿主端口保持 3307 还是改回 3306？~~ **（已定：3306）** | 本机 MySQL 8.0.29 直接监听 3306，不再有 Docker 端口映射 | 已随本机安装方案落地 |
-| **Q2** | `goods` 表的 `stock` 字段怎么处理？现有 `GoodsController.deductStock` 接口怎么办？ | (a) 删除 `goods.stock` 与 `deductStock` 接口，库存只在 `seckill_stock` (b) 保留 `goods.stock` 作为"商品总库存"（与秒杀库存并存） | **(a)** —— 避免两份库存真相；`deductStock` 与新秒杀链路职责重复，且它的"原子扣减"正好是 V0b 要演示的东西，留在示例模块里会让人困惑。**§4.2 的 DDL 已按 (a) 写**；若选 (b) 需回改 DDL 并保留 `GoodsServiceImpl.deductStock` |
+| ~~Q2~~ **（已定：a，已落地）** | `goods` 表的 `stock` 字段怎么处理？现有 `GoodsController.deductStock` 接口怎么办？ | (a) 删除 `goods.stock` 与 `deductStock` 接口，库存只在 `seckill_stock` (b) 保留 `goods.stock` 作为"商品总库存"（与秒杀库存并存） | **(a)** —— 避免两份库存真相；`deductStock` 与新秒杀链路职责重复，且它的"原子扣减"正好是 V0b 要演示的东西，留在示例模块里会让人困惑。**§4.2 的 DDL 已按 (a) 写，实体/DTO/XML/Service/Controller 已同步移除** |
 | **Q3** | 是否需要引入 `spring-boot-starter-actuator` 获取精确的连接池指标？ | (a) 引入 (b) 不引入，靠日志观察 | **(a)** —— V0 瓶颈的关键证据是"Hikari 20 连接打满后开始排队"，`/actuator/metrics/hikaricp.connections.pending` 能直接给出数据；成本是一个依赖 |
 | **Q4** | `StdOutImpl` SQL 日志（并发杀手）在压测时怎么处理？ | (a) 完全保留，压测数据带着这个开销 (b) 建 `dev-no-sqllog` profile，压测统一用它 (c) 保留主配置，压测前手工改 | **(b)** —— V0~V5 的横向对比必须变量一致；如果用 (a)，所有版本的 QPS 都被日志拖累，"哪个优化有效"会被噪声淹没。改为 (b) 后，日志本身的开销另做一次单独实验（"SQL 日志让 QPS 从 X 降到 Y"），这个结论本身也很有价值 |
 

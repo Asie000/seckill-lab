@@ -44,16 +44,4 @@ public class GoodsController {
     public Result<Long> create(@Valid @RequestBody GoodsCreateRequest request) {
         return Result.ok(goodsService.create(request));
     }
-
-    /**
-     * 扣减库存（仅用于入门演示 / 单机压测）
-     *
-     * <p>正式秒杀场景请改为：Redis 预扣减（Lua 原子脚本）-> 发 MQ -> 异步落库。
-     */
-    @PostMapping("/{id}/stock/deduct")
-    public Result<Void> deductStock(@PathVariable Long id,
-                                    @RequestParam(defaultValue = "1") int quantity) {
-        goodsService.deductStock(id, quantity);
-        return Result.ok();
-    }
 }

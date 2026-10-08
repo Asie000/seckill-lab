@@ -108,10 +108,7 @@ curl http://localhost:8080/api/goods/1
 # 新增商品
 curl -X POST http://localhost:8080/api/goods `
   -H "Content-Type: application/json" `
-  -d '{"name":"新商品","price":9.9,"stock":100}'
-
-# 扣减库存（演示原子扣减）
-curl -X POST "http://localhost:8080/api/goods/1/stock/deduct?quantity=1"
+  -d '{"name":"新商品","price":9.9}'
 ```
 
 统一响应格式：

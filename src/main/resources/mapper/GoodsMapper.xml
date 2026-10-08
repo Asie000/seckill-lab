@@ -4,7 +4,7 @@
 
     <!-- 分页查询（分页由 MyBatis-Plus 分页插件自动拼接 LIMIT） -->
     <select id="selectPageByName" resultType="com.lsy.seckill.modules.goods.entity.Goods">
-        SELECT id, name, price, stock, status, create_time, update_time
+        SELECT id, name, price, status, create_time, update_time
         FROM goods
         <where>
             <if test="name != null and name != ''">
@@ -13,14 +13,5 @@
         </where>
         ORDER BY id DESC
     </select>
-
-    <!-- 原子扣减库存：WHERE 中判断剩余库存，避免并发超卖 -->
-    <update id="deductStock">
-        UPDATE goods
-        SET stock = stock - #{quantity},
-            update_time = NOW()
-        WHERE id = #{goodsId}
-          AND stock &gt;= #{quantity}
-    </update>
 
 </mapper>

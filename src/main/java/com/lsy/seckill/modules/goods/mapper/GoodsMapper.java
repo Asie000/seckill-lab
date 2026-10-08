@@ -23,11 +23,4 @@ public interface GoodsMapper extends BaseMapper<Goods> {
      * @param name 商品名称关键字，可为空
      */
     IPage<Goods> selectPageByName(Page<Goods> page, @Param("name") String name);
-
-    /**
-     * 数据库原子扣减库存（stock >= quantity 才会扣减成功）
-     *
-     * @return 受影响行数，0 表示库存不足
-     */
-    int deductStock(@Param("goodsId") Long goodsId, @Param("quantity") int quantity);
 }

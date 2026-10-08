@@ -27,9 +27,6 @@ public class Goods {
     /** 价格（元） */
     private BigDecimal price;
 
-    /** 库存 */
-    private Integer stock;
-
     /** 状态：1-上架 0-下架 */
     private Integer status;
 

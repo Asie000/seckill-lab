@@ -1,7 +1,6 @@
 package com.lsy.seckill.modules.goods.dto;
 
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -22,8 +21,4 @@ public class GoodsCreateRequest {
     @NotNull(message = "商品价格不能为空")
     @DecimalMin(value = "0.01", message = "商品价格不能低于 0.01 元")
     private BigDecimal price;
-
-    @NotNull(message = "库存不能为空")
-    @Min(value = 0, message = "库存不能为负数")
-    private Integer stock;
 }

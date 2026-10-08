@@ -39,21 +39,8 @@ public class GoodsServiceImpl implements GoodsService {
         Goods goods = new Goods();
         goods.setName(request.getName());
         goods.setPrice(request.getPrice());
-        goods.setStock(request.getStock());
         goods.setStatus(1);
         goodsMapper.insert(goods);
         return goods.getId();
-    }
-
-    @Override
-    public void deductStock(Long goodsId, int quantity) {
-        if (quantity <= 0) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "扣减数量必须大于 0");
-        }
-        // 借助 SQL 的 WHERE stock >= ? 实现原子扣减，避免并发超卖
-        int affected = goodsMapper.deductStock(goodsId, quantity);
-        if (affected == 0) {
-            throw new BusinessException(ResultCode.SECKILL_STOCK_EMPTY);
-        }
     }
 }
