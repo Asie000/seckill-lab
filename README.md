@@ -58,7 +58,7 @@ C:\Users\lsy1\mysql-8.0.29\bin\mysql.exe -uroot -p123456 -e "source src/main/res
 ./mvnw spring-boot:run            # macOS / Linux
 
 # 4. 验证
-curl http://localhost:8080/api/goods
+curl http://localhost:8081/api/goods
 ```
 
 `schema.sql` 会创建 6 张核心表（`user` / `goods` / `seckill_activity` / `seckill_stock` / `seckill_order` / `stock_log`）并插入 1 条示例商品 + 活动 + 库存。
@@ -97,16 +97,16 @@ seckill-lab
 
 ```powershell
 # 分页查询商品
-curl "http://localhost:8080/api/goods?pageNum=1&pageSize=10"
+curl "http://localhost:8081/api/goods?pageNum=1&pageSize=10"
 
 # 按名称搜索
-curl "http://localhost:8080/api/goods?name=示例"
+curl "http://localhost:8081/api/goods?name=示例"
 
 # 商品详情
-curl http://localhost:8080/api/goods/1
+curl http://localhost:8081/api/goods/1
 
 # 新增商品
-curl -X POST http://localhost:8080/api/goods `
+curl -X POST http://localhost:8081/api/goods `
   -H "Content-Type: application/json" `
   -d '{"name":"新商品","price":9.9}'
 ```

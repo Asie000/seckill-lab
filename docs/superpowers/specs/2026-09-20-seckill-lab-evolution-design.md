@@ -494,12 +494,12 @@ V0b vs V1   → 隔离出"Redis 前置拦截"的价值（QPS 质变 + 顺带解�
 ```powershell
 # 用 SQL 临时把 start_time 改到未来 → 应返回 1001
 # C:\Users\lsy1\mysql-8.0.29\bin\mysql.exe -uroot -p123456 -e "UPDATE seckill.seckill_activity SET start_time=NOW()+INTERVAL 1 HOUR WHERE id=1;"
-curl -X POST "http://localhost:8080/api/seckill/1?userId=1"
+curl -X POST "http://localhost:8081/api/seckill/1?userId=1"
 # 期望：{"code":1001,"message":"秒杀活动尚未开始"}
 
 # 改到过去 → 应返回 1002
 # C:\Users\lsy1\mysql-8.0.29\bin\mysql.exe -uroot -p123456 -e "UPDATE seckill.seckill_activity SET end_time=NOW()-INTERVAL 1 HOUR WHERE id=1;"
-curl -X POST "http://localhost:8080/api/seckill/1?userId=1"
+curl -X POST "http://localhost:8081/api/seckill/1?userId=1"
 # 期望：{"code":1002,"message":"秒杀活动已经结束"}
 
 # 恢复

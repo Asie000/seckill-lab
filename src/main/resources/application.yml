@@ -12,7 +12,8 @@ spring:
     time-zone: GMT+8
 
 server:
-  port: 8080
+  # 8080 已被本机其它程序占用，seckill-lab 固定用 8081
+  port: 8081
 
 mybatis-plus:
   # XML 映射文件位置
