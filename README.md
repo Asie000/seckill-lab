@@ -9,41 +9,67 @@
 | JDK         | 17     | LTS                                             |
 | Spring Boot | 4.1.1  | 默认使用 **Jackson 3**（`tools.jackson`）       |
 | MyBatis-Plus| 3.5.17 | 使用 `mybatis-plus-spring-boot4-starter`        |
-| MySQL       | 8.4    | Docker 启动，自动执行 `schema.sql`              |
-| Redis       | 7      | Docker 启动                                     |
-| Kafka       | 4.3.1  | Docker 启动，单节点 KRaft（无 ZooKeeper）       |
+| MySQL       | 8.0.29 | 本机原生安装（非 Docker），端口 3306             |
+| Redis       | 5.0    | 本机原生安装（非 Docker），端口 6379             |
+| Kafka       | 4.3.1  | 本机原生安装，单节点 KRaft（无 ZooKeeper），9092 |
 | Maven       | Wrapper| `mvnw` 自带 3.9.x，无需本地安装 Maven           |
 
 ## 环境要求
 
 - JDK 17+
-- Docker Desktop（用于一键启动 MySQL / Redis / Kafka）
+- 本机已安装 MySQL / Redis / Kafka（当前为 Windows 原生安装版，**不依赖 Docker**）
 - 不需要本地安装 Maven，直接用项目自带的 `mvnw`
+
+## 本机中间件（Windows 原生安装）
+
+中间件不通过 Docker 启动，已在本机安装好，各自带启动/停止脚本：
+
+| 组件  | 版本   | 安装目录                      | 端口               | 启动脚本                     | 停止脚本                    |
+| ----- | ------ | ----------------------------- | ------------------ | ---------------------------- | --------------------------- |
+| MySQL | 8.0.29 | `C:\Users\lsy1\mysql-8.0.29` | 3306               | `mysql-8.0.29\start-mysql.bat` | `mysql-8.0.29\stop-mysql.bat` |
+| Redis | 5.0    | `C:\Users\lsy1\redis`        | 6379               | `redis\start-redis.bat`      | `redis\stop-redis.bat`      |
+| Kafka | 4.3.1  | `C:\Users\lsy1\kafka`        | 9092 / 9093        | `kafka\start-kafka.bat`      | `kafka\stop-kafka.bat`      |
+
+- **MySQL**：`root / 123456`，数据目录 `C:\Users\lsy1\mysql-data`，配置 `C:\Users\lsy1\mysql-8.0.29\my.ini`（`innodb_buffer_pool_size=128M`、`performance_schema=OFF`、`max_connections=50`）
+- **Redis**：无密码，`bind 127.0.0.1`，`appendonly no`（纯内存，重启丢数据）
+- **Kafka**：KRaft 单节点（broker + controller），数据目录 `C:\Users\lsy1\kafka-data`，堆 `-Xmx256M`。**首次使用或删过 `kafka-data` 后，先执行一次 `kafka\init-kafka.bat` 格式化存储**，再 `start-kafka.bat`
+
+后文统一用这些客户端/工具：
+
+- MySQL 客户端：`C:\Users\lsy1\mysql-8.0.29\bin\mysql.exe -uroot -p123456`
+- Redis 客户端：`C:\Users\lsy1\redis\redis-cli.exe`
+- Kafka 工具：`C:\Users\lsy1\kafka\bin\windows\*.bat`
+
+> `docker-compose.yml` 仍保留作为**可选的容器化方案**，但当前实验默认走本机安装版。
 
 ## 快速开始
 
 ```powershell
-# 1. 启动中间件（首次会自动执行建库建表脚本）
-docker compose up -d
+# 1. 启动中间件（三个独立进程；Kafka 首次先跑 init-kafka.bat）
+C:\Users\lsy1\mysql-8.0.29\start-mysql.bat
+C:\Users\lsy1\redis\start-redis.bat
+C:\Users\lsy1\kafka\start-kafka.bat
 
-# 2. 启动应用（默认 dev 环境，连接本机 3306/6379/9092）
+# 2. 首次初始化数据库（建库建表 + 示例数据；会 DROP/CREATE 全部表）
+C:\Users\lsy1\mysql-8.0.29\bin\mysql.exe -uroot -p123456 -e "source src/main/resources/db/schema.sql"
+
+# 3. 启动应用（默认 dev 环境，连接本机 3306 / 6379 / 9092）
 .\mvnw.cmd spring-boot:run        # Windows
 ./mvnw spring-boot:run            # macOS / Linux
 
-# 3. 验证
+# 4. 验证
 curl http://localhost:8080/api/goods
 ```
 
-`schema.sql` 已插入 2 条示例商品，启动后即可查询。
+`schema.sql` 会创建 6 张核心表（`user` / `goods` / `seckill_activity` / `seckill_stock` / `seckill_order` / `stock_log`）并插入 1 条示例商品 + 活动 + 库存。
 
-> MySQL 初始化脚本仅在数据卷为空（首次启动）时执行；如需重跑：
-> `docker compose down -v` 后重新 `docker compose up -d`。
+> 数据持久化在 `C:\Users\lsy1\mysql-data`；需要重置表结构时，重跑上面第 2 步的 `schema.sql` 即可（脚本内含 `DROP TABLE`）。
 
 ## 目录结构
 
 ```
 seckill-lab
-├── docker-compose.yml                 # MySQL + Redis + Kafka 一键环境
+├── docker-compose.yml                 # （可选）MySQL + Redis + Kafka 容器化方案
 ├── pom.xml
 └── src/main
     ├── java/com/lsy/seckill
@@ -60,7 +86,10 @@ seckill-lab
         ├── application.yml            # 公共配置
         ├── application-dev.yml        # 开发环境（本地中间件）
         ├── application-prod.yml       # 生产环境（环境变量注入）
-        ├── db/schema.sql              # 建库建表 + 示例数据
+        ├── db/schema.sql              # 阶段1 六表 DDL + 示例数据
+        ├── db/seed-users.sql          # 10 万压测用户造数
+        ├── db/reset-stock.sql         # 压测前重置库存/订单/流水
+        ├── db/reconcile.sql           # 对账 SQL
         └── mapper/GoodsMapper.xml     # MyBatis XML 示例
 ```
 

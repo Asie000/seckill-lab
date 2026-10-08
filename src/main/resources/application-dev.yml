@@ -1,12 +1,14 @@
 # ============================================================
-# 开发环境：依赖 docker-compose.yml 启动的 MySQL / Redis / Kafka
+# 开发环境：连接本机原生安装的 MySQL / Redis / Kafka
+# 详见 README「本机中间件」；MySQL 8.0.29 -> localhost:3306，root / 123456
 # ============================================================
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
+    # 本机 MySQL 8.0.29 直接用 3306（不再是 Docker 映射的 3307）
     url: jdbc:mysql://localhost:3306/seckill?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
     username: root
-    password: root
+    password: 123456
     hikari:
       maximum-pool-size: 20
       minimum-idle: 5

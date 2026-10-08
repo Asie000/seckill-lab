@@ -30,3 +30,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### JMeter 压测产物 ###
+jmeter.log
+*.jtl
+jmeter-report/
+report/
+

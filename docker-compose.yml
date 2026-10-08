@@ -9,7 +9,8 @@ services:
     image: mysql:8.4
     container_name: seckill-mysql
     ports:
-      - "3306:3306"
+      # 宿主机 3307 -> 容器 3306（避开本机已安装的 MySQL 8.0 占用的 3306）
+      - "3307:3306"
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: seckill
@@ -41,6 +42,9 @@ services:
     ports:
       - "9092:9092"
     environment:
+      # 限制 JVM 堆：Kafka 默认堆约 1G，是 Docker 内最大内存消耗者。
+      # 单机实验环境 512M 足够；生产环境请按吞吐量调整。
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
       # 单节点 KRaft 模式（Kafka 4.x 已移除 ZooKeeper）
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller

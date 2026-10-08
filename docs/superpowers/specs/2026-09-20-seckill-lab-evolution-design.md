@@ -6,6 +6,30 @@
 
 ---
 
+## 0. 实验环境（本机原生安装，非 Docker）
+
+中间件不走容器，而是在 Windows 本机原生安装，各自带启动/停止脚本：
+
+| 组件 | 版本 | 安装目录 | 端口 | 启动 | 停止 |
+|---|---|---|---|---|---|
+| MySQL | 8.0.29 | `C:\Users\lsy1\mysql-8.0.29` | 3306 | `start-mysql.bat` | `stop-mysql.bat` |
+| Redis | 5.0 | `C:\Users\lsy1\redis` | 6379 | `start-redis.bat` | `stop-redis.bat` |
+| Kafka | 4.3.1 | `C:\Users\lsy1\kafka` | 9092（PLAINTEXT）/ 9093（CONTROLLER） | `start-kafka.bat` | `stop-kafka.bat` |
+
+- **MySQL**：`root` / `123456`，数据目录 `C:\Users\lsy1\mysql-data`，配置 `my.ini`（`innodb_buffer_pool_size=128M`、`performance_schema=OFF`、`max_connections=50`）
+- **Redis**：无密码，`bind 127.0.0.1`，`appendonly no`（纯内存，重启丢数据）
+- **Kafka**：KRaft 单节点（broker + controller），数据目录 `C:\Users\lsy1\kafka-data`，堆 `-Xmx256M`。**首次使用或删过 `kafka-data` 后，先跑一次 `init-kafka.bat` 格式化存储**，再 `start-kafka.bat`
+
+后文命令行统一约定：
+
+- MySQL 客户端 = `C:\Users\lsy1\mysql-8.0.29\bin\mysql.exe -uroot -p123456`
+- Redis 客户端 = `C:\Users\lsy1\redis\redis-cli.exe`
+- Kafka 工具 = `C:\Users\lsy1\kafka\bin\windows\*.bat`
+
+> `docker-compose.yml` 保留为可选的容器化方案，但**当前实验默认走本机安装版**，后文命令均按本机版编写。
+
+---
+
 ## 1. 背景与目标
 
 `seckill-lab` 是一个 Spring Boot 4 + MyBatis-Plus + Redis + Kafka 的秒杀学习项目。当前工程骨架、统一响应/异常、分层规范已就绪，`goods` 示例模块可跑通，但**秒杀业务本身一行未写**。
@@ -154,7 +178,9 @@ V0 时 `C` 与 `D` 直接短路（同步走 DB），这是基线该有的样子�
 ```sql
 -- ============================================================
 -- seckill-lab 阶段 1：核心表重建（V0 基线版，不含防重复下单唯一约束）
--- 执行方式：docker compose down -v && docker compose up -d
+-- 执行方式：本机 MySQL 客户端执行（见 §0）：
+--   mysql.exe -uroot -p123456 -e "source src/main/resources/db/schema.sql"
+--   脚本内含 DROP TABLE，重跑即重建表结构
 -- ============================================================
 CREATE DATABASE IF NOT EXISTS `seckill` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 USE `seckill`;
@@ -467,17 +493,17 @@ V0b vs V1   → 隔离出"Redis 前置拦截"的价值（QPS 质变 + 顺带解�
 
 ```powershell
 # 用 SQL 临时把 start_time 改到未来 → 应返回 1001
-# docker exec seckill-mysql mysql -uroot -proot -e "UPDATE seckill.seckill_activity SET start_time=NOW()+INTERVAL 1 HOUR WHERE id=1;"
+# C:\Users\lsy1\mysql-8.0.29\bin\mysql.exe -uroot -p123456 -e "UPDATE seckill.seckill_activity SET start_time=NOW()+INTERVAL 1 HOUR WHERE id=1;"
 curl -X POST "http://localhost:8080/api/seckill/1?userId=1"
 # 期望：{"code":1001,"message":"秒杀活动尚未开始"}
 
 # 改到过去 → 应返回 1002
-# docker exec seckill-mysql mysql -uroot -proot -e "UPDATE seckill.seckill_activity SET end_time=NOW()-INTERVAL 1 HOUR WHERE id=1;"
+# C:\Users\lsy1\mysql-8.0.29\bin\mysql.exe -uroot -p123456 -e "UPDATE seckill.seckill_activity SET end_time=NOW()-INTERVAL 1 HOUR WHERE id=1;"
 curl -X POST "http://localhost:8080/api/seckill/1?userId=1"
 # 期望：{"code":1002,"message":"秒杀活动已经结束"}
 
 # 恢复
-# docker exec seckill-mysql mysql -uroot -proot -e "UPDATE seckill.seckill_activity SET start_time='2026-01-01 00:00:00', end_time='2030-12-31 23:59:59' WHERE id=1;"
+# C:\Users\lsy1\mysql-8.0.29\bin\mysql.exe -uroot -p123456 -e "UPDATE seckill.seckill_activity SET start_time='2026-01-01 00:00:00', end_time='2030-12-31 23:59:59' WHERE id=1;"
 ```
 
 ---
@@ -793,8 +819,8 @@ DELETE FROM stock_log WHERE activity_id = 1;
 ```
 
 ```powershell
-docker exec seckill-mysql mysql -uroot -proot seckill -e "source /path/reset.sql"
-# 或本地：docker exec -i seckill-mysql mysql -uroot -proot seckill < db\reset-stock.sql
+# 在项目根目录执行；reset-stock.sql 会重置库存/订单/流水
+C:\Users\lsy1\mysql-8.0.29\bin\mysql.exe -uroot -p123456 -e "source src/main/resources/db/reset-stock.sql"
 ```
 
 > **注意：** 库存 100 + 1000 并发 → 只有 100 个请求成功，其余 900 个是"库存不足"。这是**预期值不是错误**，JMeter 断言必须能区分"业务失败码"和"压测失败"，否则错误率统计会失真。见 §7.3。
@@ -840,16 +866,16 @@ jmeter -n -t jmeter\seckill-load.jmx -l result\v0a-100.jtl -e -o report\v0a-100
 ```
 1. 停应用（mvnw 进程）
 2. git checkout <tag>
-3. docker exec seckill-mysql mysql -uroot -proot seckill -e "..."  ← 执行 reset-stock.sql
-4. 清理 Redis（V1+）：docker exec seckill-redis redis-cli FLUSHDB
-5. 清空 Kafka topic（V2+）：docker exec seckill-kafka kafka-topics.sh --delete ... 或换 group-id
+3. 重置数据库（本机客户端，§0）：`mysql.exe -uroot -p123456 -e "source src/main/resources/db/reset-stock.sql"`
+4. 清理 Redis（V1+）：`C:\Users\lsy1\redis\redis-cli.exe FLUSHDB`
+5. 清空 Kafka topic（V2+）：`kafka\bin\windows\kafka-topics.bat --bootstrap-server localhost:9092 --delete --topic seckill-order-topic`，或直接换 group-id
 6. 启动应用（mvnw spring-boot:run，观察启动日志无异常）
 7. 预热：curl 一次接口确认链路通
 8. curl POST /api/seckill/preheat/1  ← V1+ 需要手动预热库存
 9. jmeter -n -t ... -l ... -e -o ...
 10. 等 30s（V2+ 等消费者追平）
 11. 执行对账 SQL（§10），记录结果
-12. 采集容器资源：docker stats --no-stream
+12. 采集中间件资源：任务管理器；Redis 另可用 `redis-cli INFO`
 13. 归档：result/ 与 report/ 重命名带 tag 前缀
 14. 重复 3~8 步跑下一个梯度
 ```
@@ -861,14 +887,16 @@ jmeter -n -t jmeter\seckill-load.jmx -l result\v0a-100.jtl -e -o report\v0a-100
 | 进程 | 占用 |
 |---|---|
 | Windows 系统 | ~3.5 GB |
-| WSL / vmmemWSL（Docker 三容器） | ~3.7 GB |
+| MySQL 8.0.29（128M buffer pool，关 performance_schema） | ~0.3 GB |
+| Redis 5.0 | ~0.05 GB |
+| Kafka 4.3.1（堆 -Xmx256M） | ~0.6 GB |
 | JMeter（堆 2G） | ~2 GB |
 | Spring 应用 | ~1 GB |
-| **小计** | **~10.2 GB** |
+| **小计** | **~7.5 GB** |
 
 **压测前必须执行：**
 1. **关闭 VS Code**（多进程约 2GB；用终端跑 mvnw 和 jmeter 就够）
-2. 确认 WSL 内存上限 `memory=4GB`（`C:\Users\lsy1\.wslconfig` 已配）
+2. 确认三个中间件已按 §0 启动（本机原生安装，无 WSL/Docker 内存波动）
 3. 压测前用任务管理器确认可用内存 ≥ 3 GB，否则降到 500 并发档
 
 **不要尝试 2000+ 并发** —— 会触发 Windows 内存压缩/换页，压测数据完全失真。
@@ -895,8 +923,8 @@ jmeter -n -t jmeter\seckill-load.jmx -l result\v0a-100.jtl -e -o report\v0a-100
 | 平均 RT / P50 / P95 / P99 / Max | JMeter 报告 |
 | 错误率 | JMeter 报告（按 §7.3 分类后的） |
 | 业务拒绝占比 | 自定义计数器（1003 / 1004 / 429 各自占比） |
-| 应用 CPU / 内存 | `docker stats`（应用为宿主进程，用任务管理器） |
-| 容器 CPU / 内存 | `docker stats --no-stream`（MySQL / Redis / Kafka） |
+| 应用 CPU / 内存 | 任务管理器（应用是本机进程） |
+| 中间件 CPU / 内存 | 任务管理器；Redis 另可 `redis-cli INFO memory` |
 
 ### 8.2 数据库侧指标（压测前后取差值）
 
@@ -924,7 +952,8 @@ ORDER BY trx_started;
 # 应用启动时加 actuator 依赖后可查；本项目未引入 actuator，
 # 改为在压测中观察日志里的 Hikari 超时警告：
 #   "HikariPool-1 - Connection is not available, request timed out after 3000ms"
-docker logs seckill-mysql --tail 100 | Select-String "too many connections"
+# 本机 MySQL 错误日志：
+Select-String "too many connections" C:\Users\lsy1\mysql-data\lsy.err | Select-Object -Last 20
 ```
 
 > 若希望有精确的连接池指标，可以引入 `spring-boot-starter-actuator` 并访问 `/actuator/metrics/hikaricp.connections.pending`。**建议引入**，成本低且是 V0 瓶颈的关键证据 —— 见 §12 开放问题 Q4。
@@ -945,9 +974,9 @@ docker logs seckill-mysql --tail 100 | Select-String "too many connections"
 
 | # | 故障 | 注入方式 | 观察点 | 期望行为 |
 |---|---|---|---|---|
-| F1 | Redis 不可用 | `docker compose stop redis` | V1/V2 秒杀接口 | **明确快速失败**（500 + 日志），不是长时间 hang；恢复后能自愈 |
-| F2 | Kafka 不可用 | `docker compose stop kafka` | V2 秒杀接口 | 发消息失败 → 回滚 Redis 预扣 → 返回错误，不产生"扣了但没落库"的脏数据 |
-| F3 | Kafka 消费者停摆 | `docker compose pause kafka` 后压测 30s | 堆积量 | `kafka-consumer-groups.sh --describe` 看到 LAG 增长；恢复后追平；**总账最终一致** |
+| F1 | Redis 不可用 | `redis\stop-redis.bat`（或直接结束 `redis-server.exe`），恢复用 `redis\start-redis.bat` | V1/V2 秒杀接口 | **明确快速失败**（500 + 日志），不是长时间 hang；恢复后能自愈 |
+| F2 | Kafka 不可用 | `kafka\stop-kafka.bat`，恢复用 `kafka\start-kafka.bat` | V2 秒杀接口 | 发消息失败 → 回滚 Redis 预扣 → 返回错误，不产生"扣了但没落库"的脏数据 |
+| F3 | Kafka 消费者停摆 | 用任务管理器/资源监视器挂起 Kafka broker 的 java 进程（等效原 `docker compose pause`；应用也是 java，按命令行含 `kafka` 区分），压测 30s 后恢复 | 堆积量 | `kafka-consumer-groups.bat --describe` 看到 LAG 增长；恢复后追平；**总账最终一致** |
 | F4 | DB 连接池打满 | 1000 并发直压 V0b | Hikari 超时日志、`Innodb_deadlocks` | 出现 connection timeout 日志与 5xx，证明 V0 瓶颈 |
 | F5 | 缓存穿透 | V4：连续请求不存在的 activityId | `Com_select` 增长曲线 | 空值缓存生效后曲线走平 |
 | F6 | 缓存击穿 | V4：`DEL` 热点 key 后立即 1000 并发 | P99 尖峰 | Caffeine 单飞生效，DB 只被打 1 次 |
@@ -1052,10 +1081,12 @@ SQL 查不到 Redis，用脚本：
 ```powershell
 # db/reconcile-redis.ps1
 $aid = 1
-$redisStock = (docker exec seckill-redis redis-cli GET "seckill:stock:$aid").Trim()
-$dbStock = (docker exec seckill-mysql mysql -uroot -proot -N -B -e `
+$mysql = "C:\Users\lsy1\mysql-8.0.29\bin\mysql.exe"
+$redis = "C:\Users\lsy1\redis\redis-cli.exe"
+$redisStock = (& $redis GET "seckill:stock:$aid").Trim()
+$dbStock = (& $mysql -uroot -p123456 -N -B -e `
   "SELECT stock FROM seckill.seckill_stock WHERE activity_id = $aid").Trim()
-$userCnt = (docker exec seckill-redis redis-cli SCARD "seckill:users:$aid").Trim()
+$userCnt = (& $redis SCARD "seckill:users:$aid").Trim()
 Write-Output "Redis 剩余库存 = $redisStock / DB 剩余库存 = $dbStock / Redis 用户数 = $userCnt"
 if ($redisStock -ne $dbStock) { Write-Output "❌ 不一致（V2 场景下需先确认消费者已追平）" }
 else { Write-Output "✅ 一致" }
@@ -1125,7 +1156,7 @@ docs/reports/data/<tag>-<concurrency>-run<N>.csv
 
 剩余待办：
 
-- [ ] **启动 Docker Desktop**（当前未运行：`//./pipe/dockerDesktopLinuxEngine` 找不到），然后 `docker compose up -d`，确认 3 个容器启动
+- [ ] **启动本机中间件**：依次跑 `mysql-8.0.29\start-mysql.bat`、`redis\start-redis.bat`、`kafka\start-kafka.bat`（Kafka 首次先 `init-kafka.bat`），确认 3306 / 6379 / 9092 可连；MySQL 建库见 §4.2
 - [ ] **清理无关文件**：`probe.txt`（内容仅 `probe-1213890748`）、`vmscan.ps1`、`jmeter.log` 全部与项目无关，删除或加入 `.gitignore`
 - [ ] **补充 `.gitignore`**：`jmeter.log`、`result/`、`report/`、`data/users.csv`
 - [ ] **提交阶段 0 遗留改动**（`README.md` / `docker-compose.yml` / `application-dev.yml` 的 3 处修改）
@@ -1135,7 +1166,7 @@ docs/reports/data/<tag>-<concurrency>-run<N>.csv
 - [ ] **打 tag** `stage0-env`
 - [ ] **推送**：`git push seckill-lab main --tags`
 
-**关于 MySQL 宿主端口 3307：** 保持不动。本机 MySQL 虽已卸载（3306 空闲），但改端口要 `docker compose down -v` 重建数据卷；不过**阶段 1 本来就要重建 schema**，此刻切换成本为零 —— 是否改成 3306 见 §13 Q1。
+**关于 MySQL 端口：** 本机 MySQL 8.0.29 直接监听 **3306**（不再是 Docker 映射的 3307），`application-dev.yml` 已同步改为 3306 / `root` / `123456`，原 §13 Q1 因此关闭。
 
 ---
 
@@ -1145,7 +1176,7 @@ docs/reports/data/<tag>-<concurrency>-run<N>.csv
 
 | # | 问题 | 选项 | 我的推荐 |
 |---|---|---|---|
-| **Q1** | MySQL 宿主端口保持 `3307` 还是改回 `3306`？ | (a) 保持 3307，只改注释 (b) 改成 3306 并 `down -v` 重建 | **(b)** —— 阶段 1 反正要重建 schema，此刻切换零成本，且消除"为什么是奇怪端口"的长期困惑 |
+| ~~Q1~~ | ~~MySQL 宿主端口保持 3307 还是改回 3306？~~ **（已定：3306）** | 本机 MySQL 8.0.29 直接监听 3306，不再有 Docker 端口映射 | 已随本机安装方案落地 |
 | **Q2** | `goods` 表的 `stock` 字段怎么处理？现有 `GoodsController.deductStock` 接口怎么办？ | (a) 删除 `goods.stock` 与 `deductStock` 接口，库存只在 `seckill_stock` (b) 保留 `goods.stock` 作为"商品总库存"（与秒杀库存并存） | **(a)** —— 避免两份库存真相；`deductStock` 与新秒杀链路职责重复，且它的"原子扣减"正好是 V0b 要演示的东西，留在示例模块里会让人困惑。**§4.2 的 DDL 已按 (a) 写**；若选 (b) 需回改 DDL 并保留 `GoodsServiceImpl.deductStock` |
 | **Q3** | 是否需要引入 `spring-boot-starter-actuator` 获取精确的连接池指标？ | (a) 引入 (b) 不引入，靠日志观察 | **(a)** —— V0 瓶颈的关键证据是"Hikari 20 连接打满后开始排队"，`/actuator/metrics/hikaricp.connections.pending` 能直接给出数据；成本是一个依赖 |
 | **Q4** | `StdOutImpl` SQL 日志（并发杀手）在压测时怎么处理？ | (a) 完全保留，压测数据带着这个开销 (b) 建 `dev-no-sqllog` profile，压测统一用它 (c) 保留主配置，压测前手工改 | **(b)** —— V0~V5 的横向对比必须变量一致；如果用 (a)，所有版本的 QPS 都被日志拖累，"哪个优化有效"会被噪声淹没。改为 (b) 后，日志本身的开销另做一次单独实验（"SQL 日志让 QPS 从 X 降到 Y"），这个结论本身也很有价值 |
@@ -1190,7 +1221,7 @@ WHERE activity_id = #{aid} AND bucket_no = #{bucket} AND stock >= 1
 | R5 | Windows 动态端口耗尽（1000 并发 × 长连接） | 压测中断，报端口不足 | 动态端口 1024-60000 共 58977 个，TIME_WAIT 30s 内可能堆积；JMeter 侧开启 Keep-Alive 复用连接 |
 | R6 | Redis 预热遗漏导致 `-3` | 压测全失败 | 压测流程 §7.4 第 8 步固定加预热调用；也可用 `@PostConstruct` 或定时任务自动预热 |
 | R7 | Kafka topic 数据跨轮次累积影响 LAG 判断 | 数据混乱 | 每轮换 `group-id`（如 `seckill-lab-v2-run1`）或删除 topic 重建 |
-| R8 | Docker Desktop 未启动 | 一切压测无法开始 | 每次开工前 `docker ps` 确认 |
+| R8 | 本机中间件未启动 | 一切压测无法开始 | 每次开工前按 §0 依次运行 `start-mysql.bat` / `start-redis.bat` / `start-kafka.bat` |
 | R9 | 应用与 JMeter 抢同一台机器资源 | 数据失真 | 无法避免（单机实验），在报告中明确标注这是"单机压测"，结论仅用于相对对比不建议用作绝对容量规划 |
 | R10 | V0a 的 `stock_before/after` 互相矛盾 | 可能被误读为 bug | 这是 V0 的**预期症状**，报告中要专门指出并作为证据（§4.2 注释已说明） |
 
