@@ -7,6 +7,7 @@ import com.lsy.seckill.common.exception.BusinessException;
 import com.lsy.seckill.common.result.ResultCode;
 import com.lsy.seckill.modules.goods.entity.Goods;
 import com.lsy.seckill.modules.goods.mapper.GoodsMapper;
+import com.lsy.seckill.modules.id.RedisIdWorker;
 import com.lsy.seckill.modules.order.dto.OrderCreateRequest;
 import com.lsy.seckill.modules.order.entity.Order;
 import com.lsy.seckill.modules.order.entity.OrderItem;
@@ -51,6 +52,7 @@ public class OrderServiceImpl implements OrderService {
     private final UserMapper userMapper;
     private final GoodsMapper goodsMapper;
     private final NotificationService notificationService;
+    private final RedisIdWorker redisIdWorker;
 
     /** r4-async：是否异步执行非核心逻辑；压测可用 --seckill.order.async.enabled=false 做 A/B */
     @Value("${seckill.order.async.enabled:true}")
@@ -136,7 +138,7 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal amount = goods.getPrice().multiply(BigDecimal.valueOf(qty));
 
         Order order = new Order();
-        order.setOrderNo("N" + UUID.randomUUID().toString().replace("-", ""));
+        order.setOrderNo(redisIdWorker.nextOrderNo("order", "N"));
         order.setUserId(request.getUserId());
         order.setOrderType(0);
         order.setTotalAmount(amount);

@@ -26,6 +26,7 @@
 | `r6-multilevel-cache.md` | 多级缓存：Caffeine + Redis（补 Phase R） |
 | `r6b-multilevel-cache-hardened.md` | 多级缓存加强：Redis 真实负载 + 容量 + 一致性（含 bug） |
 | `r7-bloom-filter.md` | 缓存穿透 + 布隆过滤器（Redis bitmap） |
+| `r8-redis-idworker.md` | 分布式 ID：RedisIdWorker（时间戳+自增） |
 | `v0a-naive.md` … `v4-ratelimit.md` | （待做）Phase S 秒杀写侧各版本 |
 | `REPORT.md` | （最后写）总报告：每一步贡献与代价 |
 

@@ -8,6 +8,7 @@ import com.lsy.seckill.modules.order.entity.Order;
 import com.lsy.seckill.modules.order.entity.OrderItem;
 import com.lsy.seckill.modules.order.mapper.OrderItemMapper;
 import com.lsy.seckill.modules.order.mapper.OrderMapper;
+import com.lsy.seckill.modules.id.RedisIdWorker;
 import com.lsy.seckill.modules.seckill.dto.SeckillMessage;
 import com.lsy.seckill.modules.seckill.entity.SeckillActivity;
 import com.lsy.seckill.modules.seckill.entity.SeckillStock;
@@ -65,6 +66,7 @@ public class SeckillServiceImpl implements SeckillService {
     private final OrderItemMapper orderItemMapper;
     private final StringRedisTemplate stringRedisTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final RedisIdWorker redisIdWorker;
 
     /** 兜底方案：index=唯一索引 / lock=Redis 分布式锁 */
     @Value("${seckill.fallback:index}")
@@ -176,7 +178,7 @@ public class SeckillServiceImpl implements SeckillService {
         }
 
         // 3. 通过：v2 发 Kafka 异步落库；否则同步落库（v1 行为）
-        String orderNo = "S" + UUID.randomUUID().toString().replace("-", "");
+        String orderNo = redisIdWorker.nextOrderNo("seckill", "S");
         if (kafkaEnabled) {
             try {
                 // 发送失败回调：回滚 Redis 并报错，避免"静默丢单"
