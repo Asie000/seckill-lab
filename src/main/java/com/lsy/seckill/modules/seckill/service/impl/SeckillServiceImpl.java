@@ -47,8 +47,12 @@ public class SeckillServiceImpl implements SeckillService {
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
 
-    /** v0a / v0b 切换：true=原子扣减(防超卖)，false=朴素扣减(会超卖) */
-    @Value("${seckill.deduct.atomic:false}")
+    /**
+     * 扣减模式：v0a=false（朴素，会超卖）/ v0b 起=true（原子，防超卖）
+     *
+     * <p>v0b-atomic 的目标：只治好超卖，重复下单仍存在。
+     */
+    @Value("${seckill.deduct.atomic:true}")
     private boolean atomicDeduct;
 
     @Override
