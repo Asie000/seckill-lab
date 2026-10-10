@@ -34,6 +34,10 @@ spring:
     producer:
       acks: all
       retries: 3
+      # Kafka 不可用时尽快失败（否则发送会挂很久才报错）
+      properties:
+        max.block.ms: 3000
+        delivery.timeout.ms: 5000
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       # Jackson 3 版本序列化器（Boot 4 默认 Jackson 3，不要用 JsonSerializer）
       value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer

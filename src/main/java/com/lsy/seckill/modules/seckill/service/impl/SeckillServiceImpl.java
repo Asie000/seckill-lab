@@ -178,9 +178,23 @@ public class SeckillServiceImpl implements SeckillService {
         // 3. 通过：v2 发 Kafka 异步落库；否则同步落库（v1 行为）
         String orderNo = "S" + UUID.randomUUID().toString().replace("-", "");
         if (kafkaEnabled) {
-            kafkaTemplate.send(KafkaTopicConfig.SECKILL_ORDER_TOPIC, orderNo,
-                    new SeckillMessage(activityId, userId, orderNo));
-            return orderNo;
+            try {
+                // 发送失败回调：回滚 Redis 并报错，避免"静默丢单"
+                kafkaTemplate.send(KafkaTopicConfig.SECKILL_ORDER_TOPIC, orderNo,
+                                new SeckillMessage(activityId, userId, orderNo))
+                        .whenComplete((result, ex) -> {
+                            if (ex != null) {
+                                log.error("[v2-发送] Kafka 异步发送失败，回滚 Redis orderNo={}, 原因={}", orderNo, ex.getMessage());
+                                safeCompensate(activityId, userId, orderNo);
+                            }
+                        });
+                return orderNo;
+            } catch (Exception e) {
+                // 同步失败（如拿不到 metadata）：回滚 Redis 并显式报错
+                log.error("[v2-发送] Kafka 同步发送失败，回滚 Redis orderNo={}, 原因={}", orderNo, e.getMessage());
+                safeCompensate(activityId, userId, orderNo);
+                throw new BusinessException(ResultCode.INTERNAL_ERROR, "秒杀下单失败，请稍后重试");
+            }
         }
         return persist(activityId, userId, snap, orderNo);
     }
@@ -302,6 +316,14 @@ public class SeckillServiceImpl implements SeckillService {
             }
         }
         return closed;
+    }
+
+    private void safeCompensate(Long activityId, Long userId, String orderNo) {
+        try {
+            compensateRedis(activityId, userId);
+        } catch (Exception e) {
+            log.error("[v2-发送] 回滚 Redis 失败 orderNo={}", orderNo, e);
+        }
     }
 
     private void compensateRedis(Long activityId, Long userId) {
