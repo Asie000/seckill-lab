@@ -22,6 +22,7 @@ import com.lsy.seckill.modules.user.entity.User;
 import com.lsy.seckill.modules.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +30,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -50,6 +51,10 @@ public class OrderServiceImpl implements OrderService {
     private final UserMapper userMapper;
     private final GoodsMapper goodsMapper;
     private final NotificationService notificationService;
+
+    /** r4-async：是否异步执行非核心逻辑；压测可用 --seckill.order.async.enabled=false 做 A/B */
+    @Value("${seckill.order.async.enabled:true}")
+    private boolean asyncEnabled;
 
     @Override
     public IPage<OrderVO> list(Long userId, int pageNum, int pageSize) {
@@ -131,8 +136,7 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal amount = goods.getPrice().multiply(BigDecimal.valueOf(qty));
 
         Order order = new Order();
-        order.setOrderNo("N" + System.currentTimeMillis()
-                + String.format("%04d", ThreadLocalRandom.current().nextInt(10000)));
+        order.setOrderNo("N" + UUID.randomUUID().toString().replace("-", ""));
         order.setUserId(request.getUserId());
         order.setOrderType(0);
         order.setTotalAmount(amount);
@@ -153,8 +157,12 @@ public class OrderServiceImpl implements OrderService {
         logistics.setStatus(0);
         orderLogisticsMapper.insert(logistics);
 
-        // ★ r0：非核心逻辑同步执行，阻塞请求线程约 1 秒
-        notificationService.afterOrderCreated(order.getOrderNo());
+        // r4-async：非核心逻辑丢线程池，请求线程立即返回；关闭开关时退回同步（r0~r3 行为）
+        if (asyncEnabled) {
+            notificationService.afterOrderCreatedAsync(order.getOrderNo());
+        } else {
+            notificationService.afterOrderCreated(order.getOrderNo());
+        }
 
         return order.getOrderNo();
     }

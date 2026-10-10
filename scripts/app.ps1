@@ -12,7 +12,8 @@ param(
     [ValidateSet('start', 'stop', 'restart')][string]$Action = 'restart',
     [int]$Pool = 0,
     [switch]$NoSqlLog,
-    [switch]$CacheOff
+    [switch]$CacheOff,
+    [switch]$AsyncOff
 )
 
 $ErrorActionPreference = 'Stop'
@@ -32,7 +33,8 @@ function Start-App {
     if ($Pool -gt 0) { $javaArgs += "--spring.datasource.hikari.maximum-pool-size=$Pool" }
     if ($NoSqlLog) { $javaArgs += '--mybatis-plus.configuration.log-impl=org.apache.ibatis.logging.nologging.NoLoggingImpl' }
     if ($CacheOff) { $javaArgs += '--seckill.cache.goods.enabled=false' }
-    Write-Host "[app] start pool=$(if($Pool -gt 0){$Pool}else{'yml默认'}) sqlLog=$(if($NoSqlLog){'off'}else{'on'}) cache=$(if($CacheOff){'off'}else{'on'})"
+    if ($AsyncOff) { $javaArgs += '--seckill.order.async.enabled=false' }
+    Write-Host "[app] start pool=$(if($Pool -gt 0){$Pool}else{'yml默认'}) sqlLog=$(if($NoSqlLog){'off'}else{'on'}) cache=$(if($CacheOff){'off'}else{'on'}) async=$(if($AsyncOff){'off'}else{'on'})"
     Start-Process -FilePath $java -ArgumentList $javaArgs -WorkingDirectory $root `
         -RedirectStandardOutput (Join-Path $root 'target\app.log') `
         -RedirectStandardError  (Join-Path $root 'target\app.err.log') `

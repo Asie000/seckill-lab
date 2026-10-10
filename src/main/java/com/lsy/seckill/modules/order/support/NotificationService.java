@@ -1,6 +1,7 @@
 package com.lsy.seckill.modules.order.support;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 /**
@@ -32,6 +33,14 @@ public class NotificationService {
 
         sleep(POINTS_MS);
         log.info("[通知] 已累加用户积分 orderNo={}", orderNo);
+    }
+
+    /**
+     * 异步执行（r4-async）：丢到 orderExecutor 线程池，立即返回
+     */
+    @Async("orderExecutor")
+    public void afterOrderCreatedAsync(String orderNo) {
+        afterOrderCreated(orderNo);
     }
 
     private void sleep(long millis) {
