@@ -29,6 +29,7 @@
 | `r8-redis-idworker.md` | 分布式 ID：RedisIdWorker（时间戳+自增） |
 | `r9-add-stock.md` | 秒杀加库存（含 Kafka 配置 bug + 毒消息/死信队列） |
 | `r10-kafka-lab.md` | Kafka 顺序消费 / 堆积(lag) / offset |
+| `r11-order-autoclose.md` | 未支付订单到期自动关闭（Spring Task 定时任务） |
 | `v0a-naive.md` … `v4-ratelimit.md` | （待做）Phase S 秒杀写侧各版本 |
 | `REPORT.md` | （最后写）总报告：每一步贡献与代价 |
 

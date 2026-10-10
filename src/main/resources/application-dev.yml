@@ -57,3 +57,13 @@ mybatis-plus:
   configuration:
     # 开发环境打印 SQL
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# ★ r11-order-autoclose：未支付订单到期自动关闭（Spring Task 定时任务）
+seckill:
+  order:
+    autoclose:
+      enabled: true
+      interval-ms: 60000        # 扫描间隔（fixedDelay）
+      timeout-seconds: 900      # 超时阈值：创建超过该秒数仍未支付则关闭
+      batch-size: 200           # 单次扫描上限
+      lock-ttl-seconds: 30      # 多实例互斥锁 TTL

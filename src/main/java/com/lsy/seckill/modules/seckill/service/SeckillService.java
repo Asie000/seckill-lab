@@ -50,4 +50,11 @@ public interface SeckillService {
 
     /** 查询 DB 与 Redis 当前库存（对账用） */
     Map<String, Object> stockInfo(Long activityId);
+
+    /**
+     * ★ r11：扫描并关闭所有超时未支付订单（定时任务用；不限定活动）
+     *
+     * @return 关闭的订单数
+     */
+    int closeTimeoutOrdersAll(long timeoutSeconds, int batchSize);
 }

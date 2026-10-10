@@ -387,6 +387,34 @@ public class SeckillServiceImpl implements SeckillService {
         return result;
     }
 
+    @Override
+    public int closeTimeoutOrdersAll(long timeoutSeconds, int batchSize) {
+        LocalDateTime deadline = LocalDateTime.now().minusSeconds(timeoutSeconds);
+        List<Order> pendings = orderMapper.selectList(new LambdaQueryWrapper<Order>()
+                .eq(Order::getStatus, 0)
+                .le(Order::getCreateTime, deadline)
+                .orderByAsc(Order::getId)
+                .last("LIMIT " + batchSize));
+        int closed = 0;
+        for (Order o : pendings) {
+            if (orderMapper.markClosed(o.getId()) == 1) {
+                if (o.getActivityId() != null) {
+                    stockMapper.restoreStock(o.getActivityId());
+                    stringRedisTemplate.opsForValue().increment(stockKey(o.getActivityId()));
+                    StockLog stockLog = new StockLog();
+                    stockLog.setActivityId(o.getActivityId());
+                    stockLog.setUserId(o.getUserId());
+                    stockLog.setOrderNo(o.getOrderNo());
+                    stockLog.setChangeType(1);
+                    stockLog.setQuantity(1);
+                    stockLogMapper.insert(stockLog);
+                }
+                closed++;
+            }
+        }
+        return closed;
+    }
+
     private void safeCompensate(Long activityId, Long userId, String orderNo) {
         try {
             compensateRedis(activityId, userId);

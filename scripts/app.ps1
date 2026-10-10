@@ -20,6 +20,10 @@ param(
     [string]$Penetration = '',
     [string]$ConsumerGroup = '',
     [switch]$ConsumerLatest,
+    [switch]$AutoCloseOff,
+    [int]$AutoCloseIntervalMs = 0,
+    [int]$AutoCloseTimeoutSec = 0,
+    [int]$AutoCloseBatch = 0,
     [int]$L1MaxSize = 0,
     [string]$Breakdown = '',
     [string]$Fallback = ''
@@ -50,6 +54,10 @@ function Start-App {
     if ($Penetration) { $javaArgs += "--seckill.cache.penetration=$Penetration" }
     if ($ConsumerGroup) { $javaArgs += "--spring.kafka.consumer.group-id=$ConsumerGroup" }
     if ($ConsumerLatest) { $javaArgs += '--spring.kafka.consumer.auto-offset-reset=latest' }
+    if ($AutoCloseOff) { $javaArgs += '--seckill.order.autoclose.enabled=false' }
+    if ($AutoCloseIntervalMs -gt 0) { $javaArgs += "--seckill.order.autoclose.interval-ms=$AutoCloseIntervalMs" }
+    if ($AutoCloseTimeoutSec -gt 0) { $javaArgs += "--seckill.order.autoclose.timeout-seconds=$AutoCloseTimeoutSec" }
+    if ($AutoCloseBatch -gt 0) { $javaArgs += "--seckill.order.autoclose.batch-size=$AutoCloseBatch" }
     if ($L1MaxSize -gt 0) { $javaArgs += "--seckill.cache.multilevel.l1-max-size=$L1MaxSize" }
     if ($Breakdown) { $javaArgs += "--seckill.cache.breakdown=$Breakdown" }
     Write-Host "[app] start pool=$(if($Pool -gt 0){$Pool}else{'yml默认'}) sqlLog=$(if($NoSqlLog){'off'}else{'on'}) cache=$(if($CacheOff){'off'}else{'on'}) async=$(if($AsyncOff){'off'}else{'on'}) kafka=$(if($KafkaOff){'off'}else{'on'}) ratelimit=$(if($RateLimitOff){'off'}else{'on'}) breakdown=$(if($Breakdown){$Breakdown}else{'off'}) fallback=$(if($Fallback){$Fallback}else{'index'})"
