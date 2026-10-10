@@ -24,6 +24,8 @@ $ErrorActionPreference = 'Stop'
 $root   = 'C:\Users\lsy1\Desktop\seckill-lab'
 $jmeter = 'D:\develop\apache-jmeter-5.6.3\bin\jmeter.bat'
 $env:JAVA_HOME = 'C:\Users\lsy1\.jdks\ms-11.0.29'
+# jmeter.bat 仅在 HEAP 未定义时用默认值，所以在此覆盖堆大小（1000 并发必需）
+$env:HEAP = '-Xms1g -Xmx2g'
 
 $outDir = Join-Path $root 'bench\results'
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
