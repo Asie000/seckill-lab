@@ -8,9 +8,10 @@
 | 文档 | 内容 |
 |---|---|
 | `01-environment.md` | 实验环境搭建：中间件启动、建库造数、编译、起应用、JMeter 冒烟验证（含踩坑记录） |
+| `x-sql-log-overhead.md` | 专题：SQL 日志开销（关日志 QPS 提升 13~20 倍） |
 | `r0-baseline.md` | Phase R 读侧基线：N+1 订单列表、连接池 10、下单同步阻塞 |
 | `r1-n1.md` | 批量 IN 查询消除 N+1（62 → 5 次 SQL） |
-| `r2-pool.md` | （待做）连接池调优 + 梯度实验 |
+| `r2-pool.md` | 连接池调优 + 梯度实验（结论：池不是瓶颈，日志才是） |
 | `r3-cache.md` | （待做）Redis 缓存 + 一致性竞态 |
 | `r4-async.md` | （待做）@Async 拆非核心逻辑 |
 | `v0a-naive.md` … `v4-ratelimit.md` | （待做）Phase S 秒杀写侧各版本 |
@@ -23,7 +24,7 @@
 | 环境 | `stage0-env` `stage1-db` | 中间件 + 六表 | ✅ 已完成（早于本实验） |
 | Phase R | `r0-baseline` | 读侧基线（N+1 / 小连接池 / 同步阻塞） | ✅ 已完成 |
 | Phase R | `r1-n1` | 批量 IN 消除 N+1 | ✅ 已完成 |
-| Phase R | `r2-pool` | 连接池调优 | ⬜ |
+| Phase R | `r2-pool` | 连接池调优 | ✅ 已完成 |
 | Phase R | `r3-cache` | Redis 缓存 + 一致性 | ⬜ |
 | Phase R | `r4-async` | @Async 异步化 | ⬜ |
 | Phase S | `v0a-naive` / `v0b-atomic` | 秒杀基线（超卖 / 重复下单） | ⬜ |
@@ -31,6 +32,12 @@
 | Phase S | `v2-kafka` | Kafka 异步削峰 | ⬜ |
 | Phase S | `v3-consistency` | 支付/关单/幂等 | ⬜ |
 | Phase S | `v4-ratelimit` | 滑动窗口限流 | ⬜ |
+
+## 压测标准口径（重要）
+
+**所有版本横向对比，统一关闭 SQL 日志**（`-NoSqlLog`）。
+原因见 `x-sql-log-overhead.md`：SQL 日志本身造成 13~20 倍的开销，会把各优化之间的差异全部盖住。
+日志开启的数据仅作为日志开销专题保留。
 
 ## 固定流程（每个 tag）
 

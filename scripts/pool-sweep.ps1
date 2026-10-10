@@ -9,7 +9,8 @@ param(
     [string[]]$Pools = @('10', '20', '30', '50'),
     [int]$Threads = 200,
     [int]$Duration = 60,
-    [string]$Tag = 'r2-poolsweep'
+    [string]$Tag = 'r2-poolsweep',
+    [switch]$NoSqlLog
 )
 
 $ErrorActionPreference = 'Stop'
@@ -30,7 +31,9 @@ function Stop-App {
 }
 
 function Start-App([string]$pool) {
-    Start-Process -FilePath $java -ArgumentList @('-jar', $jar, "--spring.datasource.hikari.maximum-pool-size=$pool") `
+    $javaArgs = @('-jar', $jar, "--spring.datasource.hikari.maximum-pool-size=$pool")
+    if ($NoSqlLog) { $javaArgs += '--mybatis-plus.configuration.log-impl=org.apache.ibatis.logging.nologging.NoLoggingImpl' }
+    Start-Process -FilePath $java -ArgumentList $javaArgs `
         -WorkingDirectory $root `
         -RedirectStandardOutput (Join-Path $root 'target\app.log') `
         -RedirectStandardError  (Join-Path $root 'target\app.err.log') `
