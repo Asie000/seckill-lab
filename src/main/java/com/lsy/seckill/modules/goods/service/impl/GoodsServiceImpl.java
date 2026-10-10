@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.lsy.seckill.common.exception.BusinessException;
 import com.lsy.seckill.common.result.ResultCode;
+import com.lsy.seckill.modules.goods.cache.GoodsCacheService;
 import com.lsy.seckill.modules.goods.dto.GoodsCreateRequest;
 import com.lsy.seckill.modules.goods.dto.GoodsUpdateRequest;
 import com.lsy.seckill.modules.goods.entity.Goods;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 public class GoodsServiceImpl implements GoodsService {
 
     private final GoodsMapper goodsMapper;
+    private final GoodsCacheService goodsCacheService;
 
     @Override
     public IPage<Goods> page(int pageNum, int pageSize, String name) {
@@ -28,7 +30,8 @@ public class GoodsServiceImpl implements GoodsService {
 
     @Override
     public Goods getById(Long id) {
-        Goods goods = goodsMapper.selectById(id);
+        // r3-cache：改走缓存（Cache-Aside）
+        Goods goods = goodsCacheService.getById(id);
         if (goods == null) {
             throw new BusinessException(ResultCode.GOODS_NOT_FOUND);
         }
@@ -57,5 +60,7 @@ public class GoodsServiceImpl implements GoodsService {
             goods.setStatus(request.getStatus());
         }
         goodsMapper.updateById(goods);
+        // r3-cache：改完 DB 删缓存（朴素做法，竞态见 simulateRace）
+        goodsCacheService.evict(id);
     }
 }

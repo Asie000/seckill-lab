@@ -12,7 +12,7 @@
 | `r0-baseline.md` | Phase R 读侧基线：N+1 订单列表、连接池 10、下单同步阻塞 |
 | `r1-n1.md` | 批量 IN 查询消除 N+1（62 → 5 次 SQL） |
 | `r2-pool.md` | 连接池调优 + 梯度实验（结论：池不是瓶颈，日志才是） |
-| `r3-cache.md` | （待做）Redis 缓存 + 一致性竞态 |
+| `r3-cache.md` | Redis 缓存 + 一致性竞态（脏读复现与延迟双删修复） |
 | `r4-async.md` | （待做）@Async 拆非核心逻辑 |
 | `v0a-naive.md` … `v4-ratelimit.md` | （待做）Phase S 秒杀写侧各版本 |
 | `REPORT.md` | （最后写）总报告：每一步贡献与代价 |
@@ -25,7 +25,7 @@
 | Phase R | `r0-baseline` | 读侧基线（N+1 / 小连接池 / 同步阻塞） | ✅ 已完成 |
 | Phase R | `r1-n1` | 批量 IN 消除 N+1 | ✅ 已完成 |
 | Phase R | `r2-pool` | 连接池调优 | ✅ 已完成 |
-| Phase R | `r3-cache` | Redis 缓存 + 一致性 | ⬜ |
+| Phase R | `r3-cache` | Redis 缓存 + 一致性 | ✅ 已完成 |
 | Phase R | `r4-async` | @Async 异步化 | ⬜ |
 | Phase S | `v0a-naive` / `v0b-atomic` | 秒杀基线（超卖 / 重复下单） | ⬜ |
 | Phase S | `v1-redis-lua` | Lua 预扣 + 双兜底 | ⬜ |
