@@ -320,6 +320,73 @@ public class SeckillServiceImpl implements SeckillService {
         return closed;
     }
 
+    // ---------- ★ r9-add-stock：运营补货 ----------
+
+    @Override
+    public Map<String, Object> addStock(Long activityId, int qty, String requestId) {
+        if (qty <= 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "补货数量必须大于 0");
+        }
+        Map<String, Object> result = new HashMap<>();
+
+        // 1. 幂等：同一 requestId 只处理一次（防止重复提交/重试重复加库存）
+        String idempotentKey = "seckill:addstock:" + activityId + ":" + requestId;
+        Boolean first = stringRedisTemplate.opsForValue()
+                .setIfAbsent(idempotentKey, "1", Duration.ofHours(24));
+        if (!Boolean.TRUE.equals(first)) {
+            result.put("applied", false);
+            result.put("reason", "重复请求，已被幂等拦截");
+            result.put("requestId", requestId);
+            return result;
+        }
+
+        // 2. 先改 DB（唯一真相）
+        int rows = stockMapper.addStock(activityId, qty);
+        if (rows == 0) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "秒杀库存不存在");
+        }
+        Integer dbStock = stockMapper.selectStock(activityId);
+
+        // 3. 再改 Redis（原子 INCRBY；未预热则用 DB 现值初始化，注意不要调 warmUp——它会清空已下单集合）
+        String key = stockKey(activityId);
+        if (Boolean.TRUE.equals(stringRedisTemplate.hasKey(key))) {
+            stringRedisTemplate.opsForValue().increment(key, qty);
+        } else {
+            stringRedisTemplate.opsForValue().set(key, String.valueOf(dbStock));
+        }
+        String redisStock = stringRedisTemplate.opsForValue().get(key);
+
+        // 4. 记库存流水（change_type=2 运营补货）
+        StockLog stockLog = new StockLog();
+        stockLog.setActivityId(activityId);
+        stockLog.setChangeType(2);
+        stockLog.setQuantity(qty);
+        stockLog.setStockBefore(dbStock == null ? null : dbStock - qty);
+        stockLog.setStockAfter(dbStock);
+        stockLog.setRemark("运营补货 requestId=" + requestId);
+        stockLogMapper.insert(stockLog);
+
+        result.put("applied", true);
+        result.put("requestId", requestId);
+        result.put("qty", qty);
+        result.put("dbStock", dbStock);
+        result.put("redisStock", redisStock == null ? null : Integer.valueOf(redisStock));
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> stockInfo(Long activityId) {
+        Integer dbStock = stockMapper.selectStock(activityId);
+        String redisStock = stringRedisTemplate.opsForValue().get(stockKey(activityId));
+        Map<String, Object> result = new HashMap<>();
+        result.put("activityId", activityId);
+        result.put("dbStock", dbStock);
+        result.put("redisStock", redisStock == null ? null : Integer.valueOf(redisStock));
+        result.put("consistent", dbStock != null && redisStock != null
+                && dbStock == Integer.parseInt(redisStock));
+        return result;
+    }
+
     private void safeCompensate(Long activityId, Long userId, String orderNo) {
         try {
             compensateRedis(activityId, userId);

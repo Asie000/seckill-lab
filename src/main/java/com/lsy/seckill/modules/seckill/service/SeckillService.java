@@ -2,6 +2,8 @@ package com.lsy.seckill.modules.seckill.service;
 
 import com.lsy.seckill.modules.seckill.dto.SeckillMessage;
 
+import java.util.Map;
+
 /**
  * 秒杀服务（Phase S 写侧）
  */
@@ -37,4 +39,15 @@ public interface SeckillService {
      * @return 关闭的订单数
      */
     int closeTimeoutOrders(Long activityId, long timeoutSeconds);
+
+    /**
+     * ★ r9-add-stock：运营补货（活动进行中加库存）
+     *
+     * @param requestId 幂等键：同一 requestId 重复调用只生效一次
+     * @return dbStock / redisStock / applied 等
+     */
+    Map<String, Object> addStock(Long activityId, int qty, String requestId);
+
+    /** 查询 DB 与 Redis 当前库存（对账用） */
+    Map<String, Object> stockInfo(Long activityId);
 }

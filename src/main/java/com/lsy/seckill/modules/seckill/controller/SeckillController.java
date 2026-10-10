@@ -51,4 +51,18 @@ public class SeckillController {
                                         @RequestParam(defaultValue = "60") long timeoutSeconds) {
         return Result.ok(seckillService.closeTimeoutOrders(activityId, timeoutSeconds));
     }
+
+    /** ★ r9-add-stock：运营补货（活动进行中加库存，带幂等 requestId） */
+    @PostMapping("/{activityId}/add-stock")
+    public Result<java.util.Map<String, Object>> addStock(@PathVariable Long activityId,
+                                                          @RequestParam int qty,
+                                                          @RequestParam String requestId) {
+        return Result.ok(seckillService.addStock(activityId, qty, requestId));
+    }
+
+    /** r9：查询 DB 与 Redis 当前库存（对账） */
+    @org.springframework.web.bind.annotation.GetMapping("/{activityId}/stock")
+    public Result<java.util.Map<String, Object>> stock(@PathVariable Long activityId) {
+        return Result.ok(seckillService.stockInfo(activityId));
+    }
 }

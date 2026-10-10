@@ -84,3 +84,18 @@ mysql orders: 0
 - 生产端更彻底的方案是**本地消息表 / 事务消息（Outbox）**，保证"业务成功则消息必达"。
 - 消费者死信队列（重试耗尽后的兜底）未做。
 - 应用启动对 Kafka 的强依赖待解耦。
+
+---
+
+## 6. ⚠️ 更正（2026-10-10，做 r9 时发现）
+
+**上文"停 Kafka（运行期）→ 明确失败 500"的结论存疑。**
+
+当时为了"Kafka 挂了尽快失败"，只加了 `delivery.timeout.ms: 5000`，**没加 `request.timeout.ms`**。
+而 Kafka 要求 `delivery.timeout.ms >= request.timeout.ms + linger.ms`，默认 `request.timeout.ms=30000`，
+不满足 → **producer 构造直接失败**（`Failed to construct kafka producer`）。
+
+后果：**无论 Kafka 是否可用，秒杀都返回 500**。所以那次观察到的 500，很可能是这个**配置 bug**，
+而非真正的"Kafka 故障被正确检测"。已补 `request.timeout.ms: 3000` 修复，结论待重验。
+
+（另外 r9 还实测到：消费者遇毒消息会无限重试卡死分区，已用 `DefaultErrorHandler` + 死信队列 `seckill-order-dlq` 修复。）
