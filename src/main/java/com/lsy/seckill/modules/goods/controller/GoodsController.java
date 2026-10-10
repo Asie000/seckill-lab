@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.lsy.seckill.common.result.Result;
 import com.lsy.seckill.modules.goods.cache.GoodsCacheService;
 import com.lsy.seckill.modules.goods.cache.HotGoodsService;
+import com.lsy.seckill.modules.goods.cache.MultiLevelGoodsCacheService;
 import com.lsy.seckill.modules.goods.dto.GoodsCreateRequest;
 import com.lsy.seckill.modules.goods.dto.GoodsUpdateRequest;
 import com.lsy.seckill.modules.goods.entity.Goods;
@@ -33,6 +34,7 @@ public class GoodsController {
     private final GoodsService goodsService;
     private final GoodsCacheService goodsCacheService;
     private final HotGoodsService hotGoodsService;
+    private final MultiLevelGoodsCacheService multiLevelGoodsCacheService;
 
     /** 分页查询商品列表 */
     @GetMapping
@@ -58,6 +60,7 @@ public class GoodsController {
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody GoodsUpdateRequest request) {
         goodsService.update(id, request);
+        multiLevelGoodsCacheService.invalidate(id);
         return Result.ok();
     }
 
@@ -102,6 +105,32 @@ public class GoodsController {
     @PostMapping("/hot/stats/reset")
     public Result<Void> hotStatsReset() {
         hotGoodsService.resetStats();
+        return Result.ok();
+    }
+
+    /** r6-multilevel-cache：多级缓存读取（Caffeine+Redis，开关 seckill.cache.multilevel.enabled） */
+    @GetMapping("/{id}/ml")
+    public Result<Goods> ml(@PathVariable Long id) {
+        return Result.ok(multiLevelGoodsCacheService.get(id));
+    }
+
+    /** r6：清空多级缓存（压测前冷启动） */
+    @PostMapping("/{id}/ml/evict")
+    public Result<Void> mlEvict(@PathVariable Long id) {
+        multiLevelGoodsCacheService.invalidate(id);
+        return Result.ok();
+    }
+
+    /** r6：多级缓存命中统计 */
+    @GetMapping("/ml/stats")
+    public Result<Map<String, Object>> mlStats() {
+        return Result.ok(multiLevelGoodsCacheService.stats());
+    }
+
+    /** r6：重置多级缓存统计 */
+    @PostMapping("/ml/stats/reset")
+    public Result<Void> mlStatsReset() {
+        multiLevelGoodsCacheService.resetStats();
         return Result.ok();
     }
 }
