@@ -20,6 +20,8 @@
 | `v2-kafka.md` | Kafka 异步落库（成功路径 ~7.7x；异步 vs 同步对照） |
 | `v3-consistency.md` | 幂等消费 + 手动 ack + 支付乐观锁 + 超时关单回补 |
 | `v4-ratelimit.md` | Redis 滑动窗口限流（含 member 撞车 bug 修复） |
+| `fault-injection.md` | 故障注入：停 Redis / 停 Kafka 的降级行为 |
+| `REPORT.md` | ★ 总报告：每一步贡献与代价 + 三个真实 bug |
 | `v0a-naive.md` … `v4-ratelimit.md` | （待做）Phase S 秒杀写侧各版本 |
 | `REPORT.md` | （最后写）总报告：每一步贡献与代价 |
 
