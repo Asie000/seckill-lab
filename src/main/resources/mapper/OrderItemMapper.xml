@@ -8,13 +8,31 @@
       r1-n1 会改为「按 orderId 集合批量查询」。
     -->
     <select id="selectByOrderIdWithGoods" resultType="com.lsy.seckill.modules.order.vo.OrderItemVO">
-        SELECT oi.goods_id AS goodsId,
+        SELECT oi.order_id AS orderId,
+               oi.goods_id AS goodsId,
                g.name      AS goodsName,
                oi.qty      AS qty,
                oi.price    AS price
         FROM order_item oi
                  LEFT JOIN goods g ON g.id = oi.goods_id
         WHERE oi.order_id = #{orderId}
+    </select>
+
+    <!--
+      r1-n1：按订单 ID 集合批量查（一次 IN 搞定整页），消除 N+1。
+    -->
+    <select id="selectByOrderIdsWithGoods" resultType="com.lsy.seckill.modules.order.vo.OrderItemVO">
+        SELECT oi.order_id AS orderId,
+               oi.goods_id AS goodsId,
+               g.name      AS goodsName,
+               oi.qty      AS qty,
+               oi.price    AS price
+        FROM order_item oi
+                 LEFT JOIN goods g ON g.id = oi.goods_id
+        WHERE oi.order_id IN
+        <foreach collection="orderIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
     </select>
 
 </mapper>

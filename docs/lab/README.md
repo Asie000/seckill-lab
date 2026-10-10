@@ -9,7 +9,7 @@
 |---|---|
 | `01-environment.md` | 实验环境搭建：中间件启动、建库造数、编译、起应用、JMeter 冒烟验证（含踩坑记录） |
 | `r0-baseline.md` | Phase R 读侧基线：N+1 订单列表、连接池 10、下单同步阻塞 |
-| `r1-n1.md` | （待做）批量 IN 查询消除 N+1 |
+| `r1-n1.md` | 批量 IN 查询消除 N+1（62 → 5 次 SQL） |
 | `r2-pool.md` | （待做）连接池调优 + 梯度实验 |
 | `r3-cache.md` | （待做）Redis 缓存 + 一致性竞态 |
 | `r4-async.md` | （待做）@Async 拆非核心逻辑 |
@@ -22,7 +22,7 @@
 |---|---|---|---|
 | 环境 | `stage0-env` `stage1-db` | 中间件 + 六表 | ✅ 已完成（早于本实验） |
 | Phase R | `r0-baseline` | 读侧基线（N+1 / 小连接池 / 同步阻塞） | ✅ 已完成 |
-| Phase R | `r1-n1` | 批量 IN 消除 N+1 | ⬜ |
+| Phase R | `r1-n1` | 批量 IN 消除 N+1 | ✅ 已完成 |
 | Phase R | `r2-pool` | 连接池调优 | ⬜ |
 | Phase R | `r3-cache` | Redis 缓存 + 一致性 | ⬜ |
 | Phase R | `r4-async` | @Async 异步化 | ⬜ |

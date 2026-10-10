@@ -10,6 +10,9 @@ import java.math.BigDecimal;
 @Data
 public class OrderItemVO {
 
+    /** 所属订单 ID（批量查询后按此分组） */
+    private Long orderId;
+
     private Long goodsId;
 
     private String goodsName;

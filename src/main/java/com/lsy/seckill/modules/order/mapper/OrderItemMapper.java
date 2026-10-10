@@ -20,4 +20,11 @@ public interface OrderItemMapper extends BaseMapper<OrderItem> {
      * <p>r0-baseline 里被「每条订单调一次」，是 N+1 的三次补查之一。
      */
     List<OrderItemVO> selectByOrderIdWithGoods(@Param("orderId") Long orderId);
+
+    /**
+     * 按订单 ID 集合批量查明细（关联商品名）
+     *
+     * <p>r1-n1：整页订单只用一次 IN 查询。
+     */
+    List<OrderItemVO> selectByOrderIdsWithGoods(@Param("orderIds") java.util.List<Long> orderIds);
 }

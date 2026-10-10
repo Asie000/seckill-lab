@@ -16,6 +16,7 @@ import com.lsy.seckill.modules.order.mapper.OrderLogisticsMapper;
 import com.lsy.seckill.modules.order.mapper.OrderMapper;
 import com.lsy.seckill.modules.order.service.OrderService;
 import com.lsy.seckill.modules.order.support.NotificationService;
+import com.lsy.seckill.modules.order.vo.OrderItemVO;
 import com.lsy.seckill.modules.order.vo.OrderVO;
 import com.lsy.seckill.modules.user.entity.User;
 import com.lsy.seckill.modules.user.mapper.UserMapper;
@@ -26,15 +27,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * 订单服务实现 —— ★ r0-baseline：订单列表为典型 N+1
+ * 订单服务实现
  *
- * <p>列表查 N 条订单后，对每条订单再发 3 次查询：
- * 用户、明细+商品、物流。20 条 = 1 + 3*20 = 61 次数据库调用。
- * 这是刻意留下的「新手写法」，r1-n1 会改为批量 IN 查询。
+ * <p>r0-baseline：订单列表为典型 N+1（每单 3 次补查，20 行 = 61 次业务查询）。
+ * <p>r1-n1：改为批量 IN，整页只 4 次查询（订单 + 用户 + 明细 + 物流）。
  */
 @Slf4j
 @Service
@@ -57,14 +60,55 @@ public class OrderServiceImpl implements OrderService {
         // 第 1 次查询：订单分页
         IPage<Order> orderPage = orderMapper.selectPage(page, wrapper);
 
-        // ★ N+1：对每条订单各补查 3 次
-        List<OrderVO> records = orderPage.getRecords().stream()
-                .map(this::toVoNaive)
-                .collect(Collectors.toList());
+        // ★ r1-n1：批量补查（共 4 次查询）
+        List<Order> orders = orderPage.getRecords();
+        List<OrderVO> records = orders.isEmpty() ? List.of() : toVoBatch(orders);
 
         Page<OrderVO> result = new Page<>(orderPage.getCurrent(), orderPage.getSize(), orderPage.getTotal());
         result.setRecords(records);
         return result;
+    }
+
+    /**
+     * ★ r1-n1 核心：整页订单只用 4 次查询
+     *
+     * <p>先收集 ID 集合，再一次 IN 查出用户 / 明细+商品 / 物流，最后在内存里匹配。
+     * 替代 r0 的「每条订单 3 次补查」。
+     */
+    private List<OrderVO> toVoBatch(List<Order> orders) {
+        Set<Long> userIds = orders.stream().map(Order::getUserId).collect(Collectors.toSet());
+        List<Long> orderIds = orders.stream().map(Order::getId).collect(Collectors.toList());
+
+        // 补查 1：用户（1 次）
+        Map<Long, User> userMap = userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+
+        // 补查 2：明细 + 商品名（1 次 IN）
+        Map<Long, List<OrderItemVO>> itemMap = orderItemMapper.selectByOrderIdsWithGoods(orderIds).stream()
+                .collect(Collectors.groupingBy(OrderItemVO::getOrderId));
+
+        // 补查 3：物流（1 次 IN）
+        Map<Long, OrderLogistics> logisticsMap = orderLogisticsMapper.selectList(
+                        new LambdaQueryWrapper<OrderLogistics>().in(OrderLogistics::getOrderId, orderIds))
+                .stream().collect(Collectors.toMap(OrderLogistics::getOrderId, Function.identity(), (a, b) -> a));
+
+        return orders.stream().map(order -> {
+            OrderVO vo = new OrderVO();
+            vo.setOrderNo(order.getOrderNo());
+            vo.setOrderType(order.getOrderType());
+            vo.setUserId(order.getUserId());
+            vo.setTotalAmount(order.getTotalAmount());
+            vo.setStatus(order.getStatus());
+            vo.setCreateTime(order.getCreateTime());
+
+            User user = userMap.get(order.getUserId());
+            vo.setUserName(user == null ? null : user.getNickname());
+            vo.setItems(itemMap.getOrDefault(order.getId(), List.of()));
+
+            OrderLogistics logistics = logisticsMap.get(order.getId());
+            vo.setLogisticsStatus(logistics == null ? "无" : logisticsText(logistics.getStatus()));
+            return vo;
+        }).collect(Collectors.toList());
     }
 
     @Override
