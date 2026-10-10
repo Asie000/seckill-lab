@@ -2,8 +2,11 @@ package com.lsy.seckill.common.exception;
 
 import com.lsy.seckill.common.result.Result;
 import com.lsy.seckill.common.result.ResultCode;
+import com.lsy.seckill.modules.ratelimit.exception.RateLimitException;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -59,6 +62,14 @@ public class GlobalExceptionHandler {
     public Result<Void> handleMethodNotSupported(HttpRequestMethodNotSupportedException e) {
         log.warn("请求方法不支持: {}", e.getMessage());
         return Result.fail(ResultCode.METHOD_NOT_ALLOWED);
+    }
+
+    /** 限流异常：返回 HTTP 429 */
+    @ExceptionHandler(RateLimitException.class)
+    public ResponseEntity<Result<Void>> handleRateLimit(RateLimitException e) {
+        log.warn("触发限流: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(Result.fail(ResultCode.TOO_MANY_REQUESTS, e.getMessage()));
     }
 
     /** 兜底异常：不向调用方暴露内部细节 */

@@ -19,6 +19,7 @@
 | `v1-redis-lua.md` | Redis+Lua 预扣 + 一人一单 + 双兜底（唯一索引 vs 锁） |
 | `v2-kafka.md` | Kafka 异步落库（成功路径 ~7.7x；异步 vs 同步对照） |
 | `v3-consistency.md` | 幂等消费 + 手动 ack + 支付乐观锁 + 超时关单回补 |
+| `v4-ratelimit.md` | Redis 滑动窗口限流（含 member 撞车 bug 修复） |
 | `v0a-naive.md` … `v4-ratelimit.md` | （待做）Phase S 秒杀写侧各版本 |
 | `REPORT.md` | （最后写）总报告：每一步贡献与代价 |
 
@@ -36,7 +37,7 @@
 | Phase S | `v1-redis-lua` | Lua 预扣 + 双兜底 | ✅ 已完成 |
 | Phase S | `v2-kafka` | Kafka 异步削峰 | ✅ 已完成 |
 | Phase S | `v3-consistency` | 支付/关单/幂等 | ✅ 已完成 |
-| Phase S | `v4-ratelimit` | 滑动窗口限流 | ⬜ |
+| Phase S | `v4-ratelimit` | 滑动窗口限流 | ✅ 已完成 |
 
 ## 压测标准口径（重要）
 

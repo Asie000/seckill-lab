@@ -1,6 +1,7 @@
 package com.lsy.seckill.modules.seckill.controller;
 
 import com.lsy.seckill.common.result.Result;
+import com.lsy.seckill.modules.ratelimit.annotation.RateLimit;
 import com.lsy.seckill.modules.seckill.service.SeckillService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,7 +20,12 @@ public class SeckillController {
 
     private final SeckillService seckillService;
 
-    /** 秒杀下单（userId 请求参数直传，无鉴权） */
+    /** 秒杀下单（userId 请求参数直传，无鉴权）
+     *
+     * <p>v4-ratelimit：入口按 IP 做滑动窗口限流（500 次/秒）。
+     */
+    @RateLimit(key = "seckill", window = 1, limit = 500,
+            type = RateLimit.LimitType.IP, message = "秒杀请求过于频繁，请稍后再试")
     @PostMapping("/{activityId}")
     public Result<String> seckill(@PathVariable Long activityId, @RequestParam Long userId) {
         return Result.ok(seckillService.seckill(activityId, userId));
