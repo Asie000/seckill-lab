@@ -2,7 +2,9 @@ package com.lsy.seckill.modules.goods.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.lsy.seckill.common.result.Result;
+import com.lsy.seckill.modules.goods.cache.GoodsBloomFilter;
 import com.lsy.seckill.modules.goods.cache.GoodsCacheService;
+import com.lsy.seckill.modules.goods.cache.GoodsPenetrationService;
 import com.lsy.seckill.modules.goods.cache.HotGoodsService;
 import com.lsy.seckill.modules.goods.cache.MultiLevelGoodsCacheService;
 import com.lsy.seckill.modules.goods.dto.GoodsCreateRequest;
@@ -35,6 +37,8 @@ public class GoodsController {
     private final GoodsCacheService goodsCacheService;
     private final HotGoodsService hotGoodsService;
     private final MultiLevelGoodsCacheService multiLevelGoodsCacheService;
+    private final GoodsPenetrationService goodsPenetrationService;
+    private final GoodsBloomFilter goodsBloomFilter;
 
     /** 分页查询商品列表 */
     @GetMapping
@@ -144,5 +148,38 @@ public class GoodsController {
     @PostMapping("/{id}/ml/race-fixed")
     public Result<Map<String, Object>> mlRaceFixed(@PathVariable Long id) throws InterruptedException {
         return Result.ok(multiLevelGoodsCacheService.simulateMlRaceFixed(id));
+    }
+
+    /** r7-bloom-filter：穿透演示读取（策略由 seckill.cache.penetration 决定） */
+    @GetMapping("/{id}/pen")
+    public Result<Goods> pen(@PathVariable Long id) {
+        return Result.ok(goodsPenetrationService.get(id));
+    }
+
+    /** r7：穿透统计（回源 DB 次数 / 布隆拦次数） */
+    @GetMapping("/pen/stats")
+    public Result<Map<String, Object>> penStats() {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("mode", goodsPenetrationService.mode());
+        data.put("dbLoads", goodsPenetrationService.dbLoads());
+        data.put("bloomRejects", goodsPenetrationService.bloomRejects());
+        return Result.ok(data);
+    }
+
+    /** r7：重置穿透统计 */
+    @PostMapping("/pen/stats/reset")
+    public Result<Void> penStatsReset() {
+        goodsPenetrationService.resetStats();
+        return Result.ok();
+    }
+
+    /** r7：重建布隆过滤器（新增商品后调用） */
+    @PostMapping("/bloom/rebuild")
+    public Result<Map<String, Object>> bloomRebuild() {
+        goodsBloomFilter.rebuild();
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("bitSize", goodsBloomFilter.bitSize());
+        data.put("k", goodsBloomFilter.k());
+        return Result.ok(data);
     }
 }
