@@ -3,6 +3,8 @@ package com.lsy.seckill.modules.goods.cache;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
+import com.lsy.seckill.common.exception.BusinessException;
+import com.lsy.seckill.common.result.ResultCode;
 import com.lsy.seckill.modules.goods.entity.Goods;
 import com.lsy.seckill.modules.goods.mapper.GoodsMapper;
 import jakarta.annotation.PostConstruct;
@@ -52,6 +54,9 @@ public class MultiLevelGoodsCacheService {
     @Value("${seckill.cache.multilevel.l1-ttl-seconds:5}")
     private long l1TtlSeconds;
 
+    @Value("${seckill.cache.multilevel.l1-max-size:1000}")
+    private long l1MaxSize;
+
     @Value("${seckill.cache.multilevel.l2-ttl-seconds:30}")
     private long l2TtlSeconds;
 
@@ -67,7 +72,7 @@ public class MultiLevelGoodsCacheService {
 
     private Cache<Long, Goods> buildL1() {
         return Caffeine.newBuilder()
-                .maximumSize(1000)
+                .maximumSize(l1MaxSize)
                 .expireAfterWrite(Duration.ofSeconds(l1TtlSeconds))
                 .recordStats()
                 .build();
@@ -112,6 +117,11 @@ public class MultiLevelGoodsCacheService {
         CacheStats cs = l1.stats();
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("enabled", enabled);
+        data.put("l1MaxSize", l1MaxSize);
+        data.put("l1EstimatedSize", l1.estimatedSize());
+        data.put("l1Evictions", cs.evictionCount());
+        long policyMax = l1.policy().eviction().map(e -> e.getMaximum()).orElse(-1L);
+        data.put("l1PolicyMax", policyMax);
         data.put("l1Hits", cs.hitCount());
         data.put("l1Misses", cs.missCount());
         data.put("l1HitRate", String.format("%.4f", cs.hitRate()));
@@ -124,6 +134,127 @@ public class MultiLevelGoodsCacheService {
         l1 = buildL1();
         l2Hits.set(0);
         dbLoads.set(0);
+    }
+
+    /**
+     * ★ 复现多级缓存一致性竞态：L1 未命中 -> 读库拿到旧值 -> 并发更新+失效 -> 旧值才写入 L1
+     *
+     * <pre>
+     * t0   reader L1 miss，loader 从 DB 读到 old
+     * t50  writer 改 DB=new，失效 L1+L2
+     * t300 reader 把旧值 put 进 L1        <-- 竞态：L1 留下旧值
+     * => DB=new，L1=old，不一致，直到 L1 TTL 到期
+     * </pre>
+     */
+    public Map<String, Object> simulateMlRace(Long id) throws InterruptedException {
+        invalidate(id);
+        Goods oldGoods = goodsMapper.selectById(id);
+        if (oldGoods == null) {
+            throw new BusinessException(ResultCode.GOODS_NOT_FOUND);
+        }
+        BigDecimal oldPrice = oldGoods.getPrice();
+        BigDecimal newPrice = oldPrice.add(BigDecimal.ONE);
+
+        // reader：模拟 L1 miss 后的 loader —— 读到旧值，停顿，再写入 L1
+        Thread reader = new Thread(() -> {
+            Goods db = goodsMapper.selectById(id);
+            sleep(300);
+            l1.put(id, db);
+        }, "ml-race-reader");
+        reader.start();
+
+        sleep(50);
+        // writer：改库 + 失效两级缓存
+        updatePrice(oldGoods, newPrice);
+        invalidate(id);
+
+        reader.join();
+
+        Goods fromL1 = l1.getIfPresent(id);
+        Goods dbNow = goodsMapper.selectById(id);
+        BigDecimal l1Price = fromL1 == null ? null : fromL1.getPrice();
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("dbPrice", dbNow.getPrice());
+        result.put("l1Price", l1Price);
+        result.put("stale", l1Price != null && l1Price.compareTo(dbNow.getPrice()) != 0);
+        result.put("desc", "多级缓存 naive 失效：并发回填把旧值写进 L1，L1 与 DB 不一致");
+        return result;
+    }
+
+    /**
+     * ★ 修复对照：更新后「延迟再失效一次」，把并发回填进 L1 的旧值删掉。
+     */
+    public Map<String, Object> simulateMlRaceFixed(Long id) throws InterruptedException {
+        invalidate(id);
+        Goods oldGoods = goodsMapper.selectById(id);
+        if (oldGoods == null) {
+            throw new BusinessException(ResultCode.GOODS_NOT_FOUND);
+        }
+        BigDecimal oldPrice = oldGoods.getPrice();
+        BigDecimal newPrice = oldPrice.add(BigDecimal.ONE);
+
+        Thread reader = new Thread(() -> {
+            Goods db = goodsMapper.selectById(id);
+            sleep(300);
+            l1.put(id, db);
+        }, "ml-race-fixed-reader");
+        reader.start();
+
+        sleep(50);
+        updatePrice(oldGoods, newPrice);
+        invalidate(id);
+        // ★ 修复：延迟再失效一次，覆盖 reader 稍后回填的旧值
+        delayedInvalidate(id, 500);
+
+        reader.join();
+        sleep(700);
+
+        Goods fromL1 = l1.getIfPresent(id);
+        // 重新读一次（此时旧值已被第二次失效清掉，会回源到新值）
+        Goods after = get(id);
+        BigDecimal l1Price = fromL1 == null ? null : fromL1.getPrice();
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("dbPrice", after.getPrice());
+        result.put("l1PriceAfterInvalidate", l1Price);
+        result.put("readPrice", after.getPrice());
+        result.put("stale", l1Price != null && l1Price.compareTo(after.getPrice()) != 0);
+        result.put("desc", "延迟失效：并发回填的旧值被第二次失效清除，最终一致");
+        return result;
+    }
+
+    private void updatePrice(Goods oldGoods, BigDecimal newPrice) {
+        Goods update = new Goods();
+        update.setId(oldGoods.getId());
+        update.setName(oldGoods.getName());
+        update.setPrice(newPrice);
+        update.setStatus(oldGoods.getStatus());
+        goodsMapper.updateById(update);
+    }
+
+    /** 延迟失效（延迟双删的本地版）：更新后延迟一段时间再失效一次 */
+    public void delayedInvalidate(Long id, long delayMillis) {
+        Thread t = new Thread(() -> {
+            try {
+                Thread.sleep(delayMillis);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            invalidate(id);
+            log.info("[多级缓存] 延迟失效完成 goodsId={}", id);
+        }, "ml-delayed-invalidate");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    private void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     // ---------- 序列化 ----------

@@ -39,7 +39,9 @@ r3 用 Redis 做缓存，已能挡住大部分 DB 压力。但热点 key 的每�
 - `GET /api/goods/ml/stats`、`POST /api/goods/ml/stats/reset` 命中统计
 - `POST /api/goods/{id}/ml/evict` 清两级缓存
 
-> 说明：更新 `PUT /api/goods/{id}` 已挂上 `invalidate(id)`，保证改完不脏读。
+> 说明：更新 `PUT /api/goods/{id}` 已挂上 `invalidate(id)`。
+> ⚠️ 此版本**并不能**保证不脏读——多级缓存在单实例下也会因"并发回填旧值"而脏读，
+> 详见 `r6b-multilevel-cache-hardened.md` 实验 3（已复现并修复）。
 
 ---
 

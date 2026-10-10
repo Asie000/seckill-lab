@@ -133,4 +133,16 @@ public class GoodsController {
         multiLevelGoodsCacheService.resetStats();
         return Result.ok();
     }
+
+    /** 【教学用】r6b：复现多级缓存一致性竞态 */
+    @PostMapping("/{id}/ml/race")
+    public Result<Map<String, Object>> mlRace(@PathVariable Long id) throws InterruptedException {
+        return Result.ok(multiLevelGoodsCacheService.simulateMlRace(id));
+    }
+
+    /** 【教学用】r6b：延迟失效修复后的对照 */
+    @PostMapping("/{id}/ml/race-fixed")
+    public Result<Map<String, Object>> mlRaceFixed(@PathVariable Long id) throws InterruptedException {
+        return Result.ok(multiLevelGoodsCacheService.simulateMlRaceFixed(id));
+    }
 }

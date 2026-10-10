@@ -24,6 +24,7 @@
 | `REPORT.md` | ★ 总报告：每一步贡献与代价 + 三个真实 bug |
 | `r5-cache-breakdown.md` | 缓存击穿：互斥锁 vs 逻辑过期（补 Phase R） |
 | `r6-multilevel-cache.md` | 多级缓存：Caffeine + Redis（补 Phase R） |
+| `r6b-multilevel-cache-hardened.md` | 多级缓存加强：Redis 真实负载 + 容量 + 一致性（含 bug） |
 | `v0a-naive.md` … `v4-ratelimit.md` | （待做）Phase S 秒杀写侧各版本 |
 | `REPORT.md` | （最后写）总报告：每一步贡献与代价 |
 

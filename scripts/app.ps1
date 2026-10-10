@@ -17,6 +17,7 @@ param(
     [switch]$KafkaOff,
     [switch]$RateLimitOff,
     [switch]$MultiLevelOff,
+    [int]$L1MaxSize = 0,
     [string]$Breakdown = '',
     [string]$Fallback = ''
 )
@@ -43,6 +44,7 @@ function Start-App {
     if ($KafkaOff) { $javaArgs += '--seckill.kafka.enabled=false' }
     if ($RateLimitOff) { $javaArgs += '--seckill.ratelimit.enabled=false' }
     if ($MultiLevelOff) { $javaArgs += '--seckill.cache.multilevel.enabled=false' }
+    if ($L1MaxSize -gt 0) { $javaArgs += "--seckill.cache.multilevel.l1-max-size=$L1MaxSize" }
     if ($Breakdown) { $javaArgs += "--seckill.cache.breakdown=$Breakdown" }
     Write-Host "[app] start pool=$(if($Pool -gt 0){$Pool}else{'yml默认'}) sqlLog=$(if($NoSqlLog){'off'}else{'on'}) cache=$(if($CacheOff){'off'}else{'on'}) async=$(if($AsyncOff){'off'}else{'on'}) kafka=$(if($KafkaOff){'off'}else{'on'}) ratelimit=$(if($RateLimitOff){'off'}else{'on'}) breakdown=$(if($Breakdown){$Breakdown}else{'off'}) fallback=$(if($Fallback){$Fallback}else{'index'})"
     Start-Process -FilePath $java -ArgumentList $javaArgs -WorkingDirectory $root `
