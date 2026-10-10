@@ -1,5 +1,7 @@
 package com.lsy.seckill.modules.seckill.service;
 
+import com.lsy.seckill.modules.seckill.dto.SeckillMessage;
+
 /**
  * 秒杀服务（Phase S 写侧）
  */
@@ -18,4 +20,9 @@ public interface SeckillService {
      * 库存预热：把 DB 库存写入 Redis 并清空已下单集合（v1 起压测前必须调用）
      */
     void warmUp(Long activityId);
+
+    /**
+     * 消费 Kafka 消息，异步落库（v2-kafka）
+     */
+    void handleSeckillMessage(SeckillMessage message);
 }

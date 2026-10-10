@@ -3,10 +3,12 @@ package com.lsy.seckill.modules.seckill.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.lsy.seckill.common.exception.BusinessException;
 import com.lsy.seckill.common.result.ResultCode;
+import com.lsy.seckill.config.KafkaTopicConfig;
 import com.lsy.seckill.modules.order.entity.Order;
 import com.lsy.seckill.modules.order.entity.OrderItem;
 import com.lsy.seckill.modules.order.mapper.OrderItemMapper;
 import com.lsy.seckill.modules.order.mapper.OrderMapper;
+import com.lsy.seckill.modules.seckill.dto.SeckillMessage;
 import com.lsy.seckill.modules.seckill.entity.SeckillActivity;
 import com.lsy.seckill.modules.seckill.entity.SeckillStock;
 import com.lsy.seckill.modules.seckill.entity.StockLog;
@@ -21,6 +23,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,10 +64,15 @@ public class SeckillServiceImpl implements SeckillService {
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
     private final StringRedisTemplate stringRedisTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     /** 兜底方案：index=唯一索引 / lock=Redis 分布式锁 */
     @Value("${seckill.fallback:index}")
     private String fallback;
+
+    /** v2-kafka：Lua 通过后是否只发 Kafka、由消费者异步落库 */
+    @Value("${seckill.kafka.enabled:true}")
+    private boolean kafkaEnabled;
 
     private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
 
@@ -167,11 +175,29 @@ public class SeckillServiceImpl implements SeckillService {
             throw new BusinessException(ResultCode.SECKILL_REPEAT);
         }
 
-        // 3. 通过，落库（含兜底）
-        return persist(activityId, userId, snap);
+        // 3. 通过：v2 发 Kafka 异步落库；否则同步落库（v1 行为）
+        String orderNo = "S" + UUID.randomUUID().toString().replace("-", "");
+        if (kafkaEnabled) {
+            kafkaTemplate.send(KafkaTopicConfig.SECKILL_ORDER_TOPIC, orderNo,
+                    new SeckillMessage(activityId, userId, orderNo));
+            return orderNo;
+        }
+        return persist(activityId, userId, snap, orderNo);
     }
 
-    private String persist(Long activityId, Long userId, ActivitySnapshot snap) {
+    /**
+     * 消费 Kafka 消息后的异步落库（v2）。
+     *
+     * <p>异常向上抛（由消费者捕获记录），使 @Transactional 能正常回滚。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void handleSeckillMessage(SeckillMessage message) {
+        ActivitySnapshot snap = loadActivity(message.getActivityId());
+        persist(message.getActivityId(), message.getUserId(), snap, message.getOrderNo());
+    }
+
+    private String persist(Long activityId, Long userId, ActivitySnapshot snap, String orderNo) {
         if ("lock".equalsIgnoreCase(fallback)) {
             String key = lockKey(activityId, userId);
             Boolean locked = stringRedisTemplate.opsForValue()
@@ -180,22 +206,22 @@ public class SeckillServiceImpl implements SeckillService {
                 throw new BusinessException(ResultCode.SECKILL_REPEAT);
             }
             try {
-                return doPersist(activityId, userId, snap);
+                doPersist(activityId, userId, snap, orderNo);
             } finally {
                 stringRedisTemplate.delete(key);
             }
         }
-        return doPersist(activityId, userId, snap);
+        doPersist(activityId, userId, snap, orderNo);
+        return orderNo;
     }
 
-    private String doPersist(Long activityId, Long userId, ActivitySnapshot snap) {
+    private void doPersist(Long activityId, Long userId, ActivitySnapshot snap, String orderNo) {
         int rows = stockMapper.deductAtomic(activityId);
         if (rows == 0) {
             compensateRedis(activityId, userId);
             throw new BusinessException(ResultCode.SECKILL_STOCK_EMPTY);
         }
 
-        String orderNo = "S" + UUID.randomUUID().toString().replace("-", "");
         Order order = new Order();
         order.setOrderNo(orderNo);
         order.setUserId(userId);
@@ -232,8 +258,6 @@ public class SeckillServiceImpl implements SeckillService {
             stockLog.setStockBefore(stock.getStock() + 1);
         }
         stockLogMapper.insert(stockLog);
-
-        return orderNo;
     }
 
     private void compensateRedis(Long activityId, Long userId) {
