@@ -39,6 +39,7 @@ public class GoodsCacheService {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final GoodsMapper goodsMapper;
+    private final CacheEvictSupport cacheEvictSupport;
 
     /** 缓存开关：压测时可用 --seckill.cache.goods.enabled=false 做 A/B 对照 */
     @Value("${seckill.cache.goods.enabled:true}")
@@ -71,6 +72,11 @@ public class GoodsCacheService {
     /** 更新后删除缓存（r3 的朴素做法，存在竞态） */
     public void evict(Long id) {
         redisTemplate.delete(key(id));
+    }
+
+    /** ★ r12：删除缓存；失败则发 Kafka 补偿重试（最终一致） */
+    public void evictWithCompensation(Long id) {
+        cacheEvictSupport.evictWithCompensation(key(id));
     }
 
     /** 延迟双删：更新后先删一次，延迟一段时间再删一次，覆盖并发回填的旧值 */

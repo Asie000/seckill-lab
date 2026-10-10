@@ -13,6 +13,7 @@ public class KafkaTopicConfig {
 
     public static final String SECKILL_ORDER_TOPIC = "seckill-order";
     public static final String SECKILL_ORDER_DLQ_TOPIC = "seckill-order-dlq";
+    public static final String CACHE_EVICT_TOPIC = "cache-evict";
 
     @Bean
     public NewTopic seckillOrderTopic() {
@@ -36,6 +37,15 @@ public class KafkaTopicConfig {
     public NewTopic labMsgTopic() {
         return TopicBuilder.name("lab-msg")
                 .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    /** r12：缓存删除补偿 topic */
+    @Bean
+    public NewTopic cacheEvictTopic() {
+        return TopicBuilder.name(CACHE_EVICT_TOPIC)
+                .partitions(1)
                 .replicas(1)
                 .build();
     }

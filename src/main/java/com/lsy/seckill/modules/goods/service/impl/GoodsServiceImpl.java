@@ -60,7 +60,7 @@ public class GoodsServiceImpl implements GoodsService {
             goods.setStatus(request.getStatus());
         }
         goodsMapper.updateById(goods);
-        // r3-cache：改完 DB 删缓存（朴素做法，竞态见 simulateRace）
-        goodsCacheService.evict(id);
+        // r12：改完 DB 删缓存；删失败发 Kafka 补偿重试（原 r3 为 goodsCacheService.evict(id)）
+        goodsCacheService.evictWithCompensation(id);
     }
 }

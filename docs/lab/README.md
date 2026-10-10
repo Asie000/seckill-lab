@@ -30,6 +30,7 @@
 | `r9-add-stock.md` | 秒杀加库存（含 Kafka 配置 bug + 毒消息/死信队列） |
 | `r10-kafka-lab.md` | Kafka 顺序消费 / 堆积(lag) / offset |
 | `r11-order-autoclose.md` | 未支付订单到期自动关闭（Spring Task 定时任务） |
+| `r12-cache-evict-compensation.md` | 删缓存失败 → Kafka 补偿重试 |
 | `v0a-naive.md` … `v4-ratelimit.md` | （待做）Phase S 秒杀写侧各版本 |
 | `REPORT.md` | （最后写）总报告：每一步贡献与代价 |
 

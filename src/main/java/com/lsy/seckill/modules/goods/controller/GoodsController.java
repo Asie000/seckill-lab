@@ -2,6 +2,7 @@ package com.lsy.seckill.modules.goods.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.lsy.seckill.common.result.Result;
+import com.lsy.seckill.modules.goods.cache.CacheEvictSupport;
 import com.lsy.seckill.modules.goods.cache.GoodsBloomFilter;
 import com.lsy.seckill.modules.goods.cache.GoodsCacheService;
 import com.lsy.seckill.modules.goods.cache.GoodsPenetrationService;
@@ -39,6 +40,7 @@ public class GoodsController {
     private final MultiLevelGoodsCacheService multiLevelGoodsCacheService;
     private final GoodsPenetrationService goodsPenetrationService;
     private final GoodsBloomFilter goodsBloomFilter;
+    private final CacheEvictSupport cacheEvictSupport;
 
     /** 分页查询商品列表 */
     @GetMapping
@@ -181,5 +183,18 @@ public class GoodsController {
         data.put("bitSize", goodsBloomFilter.bitSize());
         data.put("k", goodsBloomFilter.k());
         return Result.ok(data);
+    }
+
+    /** r12：读取 cache:goods:{id} 缓存值（验证一致性/补偿效果） */
+    @GetMapping("/{id}/cached")
+    public Result<Goods> cached(@PathVariable Long id) {
+        return Result.ok(goodsCacheService.getById(id));
+    }
+
+    /** r12：开关「模拟删除缓存失败」 */
+    @PostMapping("/cache/evict/simulate-fail")
+    public Result<Map<String, Object>> simulateEvictFail(@RequestParam boolean on) {
+        cacheEvictSupport.setSimulateFail(on);
+        return Result.ok(Map.of("simulateFail", on));
     }
 }
