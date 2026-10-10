@@ -10,11 +10,12 @@ spring:
     username: root
     password: 123456
     hikari:
-      # ★ r0-baseline：刻意用「默认小池 10 + 30s 超时」，复现文章里的连接池瓶颈
-      #   r2-pool 会调到 30 / 3s
-      maximum-pool-size: 10
-      minimum-idle: 5
-      connection-timeout: 30000
+      # ★ r2-pool：从 r0 的 10/30s 调到 30/3s
+      #   连接不是越多越好：本机 10 核 + 2 磁盘，HikariCP 经验上限 ≈ 核*2+磁盘 ≈ 22
+      #   梯度实验（10/20/30/50）见 docs/lab/r2-pool.md
+      maximum-pool-size: 30
+      minimum-idle: 10
+      connection-timeout: 3000
       pool-name: SeckillHikariPool
 
   data:
