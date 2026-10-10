@@ -30,4 +30,13 @@ public class KafkaTopicConfig {
                 .replicas(1)
                 .build();
     }
+
+    /** r10-kafka-lab：3 分区（配合 3 个消费者线程演示顺序/堆积） */
+    @Bean
+    public NewTopic labMsgTopic() {
+        return TopicBuilder.name("lab-msg")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
 }
