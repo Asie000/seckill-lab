@@ -26,4 +26,10 @@ public interface SeckillStockMapper extends BaseMapper<SeckillStock> {
      */
     @Update("UPDATE seckill_stock SET stock = stock - 1 WHERE activity_id = #{activityId} AND stock >= 1")
     int deductAtomic(@Param("activityId") Long activityId);
+
+    /**
+     * v3：回补库存（超时关单）
+     */
+    @Update("UPDATE seckill_stock SET stock = stock + 1 WHERE activity_id = #{activityId}")
+    int restoreStock(@Param("activityId") Long activityId);
 }

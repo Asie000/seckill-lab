@@ -260,6 +260,50 @@ public class SeckillServiceImpl implements SeckillService {
         stockLogMapper.insert(stockLog);
     }
 
+    /**
+     * 支付（v3）：条件更新实现乐观锁，并发支付只有 1 次能把 0 -> 1。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void pay(String orderNo) {
+        int rows = orderMapper.markPaid(orderNo);
+        if (rows == 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "订单不存在或已支付/已关闭");
+        }
+    }
+
+    /**
+     * 关闭超时未支付订单并回补库存（v3）。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int closeTimeoutOrders(Long activityId, long timeoutSeconds) {
+        LocalDateTime deadline = LocalDateTime.now().minusSeconds(timeoutSeconds);
+        List<Order> pendings = orderMapper.selectList(new LambdaQueryWrapper<Order>()
+                .eq(Order::getActivityId, activityId)
+                .eq(Order::getOrderType, 1)
+                .eq(Order::getStatus, 0)
+                .le(Order::getCreateTime, deadline)
+                .last("LIMIT 200"));
+        int closed = 0;
+        for (Order o : pendings) {
+            // 条件更新：只有仍为「待支付」才关闭（防止与支付并发打架）
+            if (orderMapper.markClosed(o.getId()) == 1) {
+                stockMapper.restoreStock(activityId);
+                stringRedisTemplate.opsForValue().increment(stockKey(activityId));
+                StockLog log = new StockLog();
+                log.setActivityId(activityId);
+                log.setUserId(o.getUserId());
+                log.setOrderNo(o.getOrderNo());
+                log.setChangeType(1);   // +1 回补
+                log.setQuantity(1);
+                stockLogMapper.insert(log);
+                closed++;
+            }
+        }
+        return closed;
+    }
+
     private void compensateRedis(Long activityId, Long userId) {
         stringRedisTemplate.opsForValue().increment(stockKey(activityId));
         stringRedisTemplate.opsForSet().remove(orderKey(activityId), String.valueOf(userId));

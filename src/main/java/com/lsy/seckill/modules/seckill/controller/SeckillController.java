@@ -31,4 +31,18 @@ public class SeckillController {
         seckillService.warmUp(activityId);
         return Result.ok();
     }
+
+    /** 支付（v3）：并发支付只 1 次成功 */
+    @PostMapping("/pay/{orderNo}")
+    public Result<Void> pay(@PathVariable String orderNo) {
+        seckillService.pay(orderNo);
+        return Result.ok();
+    }
+
+    /** 关闭超时未支付订单并回补库存（v3） */
+    @PostMapping("/{activityId}/close-timeout")
+    public Result<Integer> closeTimeout(@PathVariable Long activityId,
+                                        @RequestParam(defaultValue = "60") long timeoutSeconds) {
+        return Result.ok(seckillService.closeTimeoutOrders(activityId, timeoutSeconds));
+    }
 }

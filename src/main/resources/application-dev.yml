@@ -28,6 +28,9 @@ spring:
 
   kafka:
     bootstrap-servers: localhost:9092
+    # v3-consistency：手动 ack（消费者处理成功才确认）
+    listener:
+      ack-mode: manual
     producer:
       acks: all
       retries: 3
