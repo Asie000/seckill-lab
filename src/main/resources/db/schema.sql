@@ -89,6 +89,9 @@ CREATE TABLE `orders` (
   `update_time`  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_order_no` (`order_no`),
+  -- v1-redis-lua：兜底方案 A——数据库唯一索引，防同一活动同一用户重复下单
+  --   （普通单 activity_id 为 NULL，MySQL 唯一索引允许多个 NULL，不受影响）
+  UNIQUE KEY `uk_activity_user` (`activity_id`, `user_id`),
   KEY `idx_user_activity` (`user_id`, `activity_id`),   -- V0 为普通索引（暴露重复下单）；v1 升级为 UNIQUE 唯一索引
   KEY `idx_user_id` (`user_id`),
   KEY `idx_status_create` (`status`, `create_time`)

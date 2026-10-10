@@ -13,7 +13,8 @@ param(
     [int]$Pool = 0,
     [switch]$NoSqlLog,
     [switch]$CacheOff,
-    [switch]$AsyncOff
+    [switch]$AsyncOff,
+    [string]$Fallback = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -34,7 +35,8 @@ function Start-App {
     if ($NoSqlLog) { $javaArgs += '--mybatis-plus.configuration.log-impl=org.apache.ibatis.logging.nologging.NoLoggingImpl' }
     if ($CacheOff) { $javaArgs += '--seckill.cache.goods.enabled=false' }
     if ($AsyncOff) { $javaArgs += '--seckill.order.async.enabled=false' }
-    Write-Host "[app] start pool=$(if($Pool -gt 0){$Pool}else{'yml默认'}) sqlLog=$(if($NoSqlLog){'off'}else{'on'}) cache=$(if($CacheOff){'off'}else{'on'}) async=$(if($AsyncOff){'off'}else{'on'})"
+    if ($Fallback) { $javaArgs += "--seckill.fallback=$Fallback" }
+    Write-Host "[app] start pool=$(if($Pool -gt 0){$Pool}else{'yml默认'}) sqlLog=$(if($NoSqlLog){'off'}else{'on'}) cache=$(if($CacheOff){'off'}else{'on'}) async=$(if($AsyncOff){'off'}else{'on'}) fallback=$(if($Fallback){$Fallback}else{'index'})"
     Start-Process -FilePath $java -ArgumentList $javaArgs -WorkingDirectory $root `
         -RedirectStandardOutput (Join-Path $root 'target\app.log') `
         -RedirectStandardError  (Join-Path $root 'target\app.err.log') `

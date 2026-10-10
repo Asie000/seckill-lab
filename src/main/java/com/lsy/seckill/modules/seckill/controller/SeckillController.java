@@ -24,4 +24,11 @@ public class SeckillController {
     public Result<String> seckill(@PathVariable Long activityId, @RequestParam Long userId) {
         return Result.ok(seckillService.seckill(activityId, userId));
     }
+
+    /** 库存预热（v1 起，压测前调用） */
+    @PostMapping("/{activityId}/warmup")
+    public Result<Void> warmUp(@PathVariable Long activityId) {
+        seckillService.warmUp(activityId);
+        return Result.ok();
+    }
 }
