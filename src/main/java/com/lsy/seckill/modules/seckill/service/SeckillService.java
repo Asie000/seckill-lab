@@ -54,7 +54,8 @@ public interface SeckillService {
     /**
      * ★ r11：扫描并关闭所有超时未支付订单（定时任务用；不限定活动）
      *
+     * @param batchRestock true=批量回补（聚合后一次 UPDATE/INCRBY + 批量 INSERT）；false=逐单回补
      * @return 关闭的订单数
      */
-    int closeTimeoutOrdersAll(long timeoutSeconds, int batchSize);
+    int closeTimeoutOrdersAll(long timeoutSeconds, int batchSize, boolean batchRestock);
 }

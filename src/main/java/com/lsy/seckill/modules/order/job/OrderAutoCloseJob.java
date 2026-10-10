@@ -38,6 +38,9 @@ public class OrderAutoCloseJob {
     @Value("${seckill.order.autoclose.batch-size:200}")
     private int batchSize;
 
+    @Value("${seckill.order.autoclose.batch-restock:true}")
+    private boolean batchRestock;
+
     @Value("${seckill.order.autoclose.lock-ttl-seconds:30}")
     private long lockTtlSeconds;
 
@@ -54,7 +57,7 @@ public class OrderAutoCloseJob {
         }
         long start = System.currentTimeMillis();
         try {
-            int closed = seckillService.closeTimeoutOrdersAll(timeoutSeconds, batchSize);
+            int closed = seckillService.closeTimeoutOrdersAll(timeoutSeconds, batchSize, batchRestock);
             long cost = System.currentTimeMillis() - start;
             if (closed > 0) {
                 log.info("[定时关单] 关闭 {} 笔超时未支付订单，耗时 {}ms", closed, cost);

@@ -65,15 +65,24 @@ SELECT * FROM orders WHERE status=0 AND create_time <= NOW() - INTERVAL 900 SECO
 - `status 0→3`：10005 笔全部关闭；`stock_log` 增加 **10004**（= 秒杀单数，普通单不回补）。
 - **一致性**：关完后 `redisStock == dbStock == 105503`（`consistent=true`）。
 
-### 3.3 ★ 性能发现：逐单循环太慢
+### 3.3 ★ 性能发现与优化：逐单循环 → 批量回补
 
-每单 4 次远程往返（`markClosed` UPDATE + `restoreStock` UPDATE + Redis `INCR` + `stock_log` INSERT），
-5000 单 ≈ **2 万条语句串行** → 27s，**约 185 单/秒**。
+**逐单版**：每单 4 次远程往返（`markClosed` UPDATE + `restoreStock` UPDATE + Redis `INCR` + `stock_log` INSERT）
+→ 5000 单 ≈ **2 万条语句串行**。
 
-**优化方向**（可继续做）：
-- `UPDATE orders SET status=3 WHERE id IN (...) AND status=0` 批量关闭；
-- `stock_log` 用 `INSERT ... VALUES (...),(...)` 批量插入；
-- Redis 用 pipeline / 直接按活动聚合一次 `INCRBY N`（同一活动只调一次）。
+**批量版**（`batch-restock=true`）：`markClosed` 仍逐单（保证条件更新正确性），但
+- 库存回补**按活动聚合**：1 次 `UPDATE ... stock = stock + N` + 1 次 Redis `INCRBY N`（/活动）；
+- 库存流水一次性**批量 INSERT**（一条多值 SQL）。
+
+| 模式 | 关闭单数 | 耗时 | 每单 |
+|---|---:|---:|---:|
+| 逐单（`batch-restock=false`） | 5000 | **20358ms** | 4.07ms |
+| 批量（`batch-restock=true`） | 5000 | **9327ms** | 1.87ms |
+
+> **约 2.2x**。剩余瓶颈是逐单 `markClosed`（5000 次 UPDATE）；进一步可批量 `UPDATE ... WHERE id IN (...)`。
+> 批量模式下 `redisStock == dbStock`（一致性不变）。
+
+复现：`scripts\app.ps1 ... -AutoClosePerOrder`（逐单）vs 默认（批量）。
 
 ---
 

@@ -24,6 +24,7 @@ param(
     [int]$AutoCloseIntervalMs = 0,
     [int]$AutoCloseTimeoutSec = 0,
     [int]$AutoCloseBatch = 0,
+    [switch]$AutoClosePerOrder,
     [int]$L1MaxSize = 0,
     [string]$Breakdown = '',
     [string]$Fallback = ''
@@ -58,6 +59,7 @@ function Start-App {
     if ($AutoCloseIntervalMs -gt 0) { $javaArgs += "--seckill.order.autoclose.interval-ms=$AutoCloseIntervalMs" }
     if ($AutoCloseTimeoutSec -gt 0) { $javaArgs += "--seckill.order.autoclose.timeout-seconds=$AutoCloseTimeoutSec" }
     if ($AutoCloseBatch -gt 0) { $javaArgs += "--seckill.order.autoclose.batch-size=$AutoCloseBatch" }
+    if ($AutoClosePerOrder) { $javaArgs += '--seckill.order.autoclose.batch-restock=false' }
     if ($L1MaxSize -gt 0) { $javaArgs += "--seckill.cache.multilevel.l1-max-size=$L1MaxSize" }
     if ($Breakdown) { $javaArgs += "--seckill.cache.breakdown=$Breakdown" }
     Write-Host "[app] start pool=$(if($Pool -gt 0){$Pool}else{'yml默认'}) sqlLog=$(if($NoSqlLog){'off'}else{'on'}) cache=$(if($CacheOff){'off'}else{'on'}) async=$(if($AsyncOff){'off'}else{'on'}) kafka=$(if($KafkaOff){'off'}else{'on'}) ratelimit=$(if($RateLimitOff){'off'}else{'on'}) breakdown=$(if($Breakdown){$Breakdown}else{'off'}) fallback=$(if($Fallback){$Fallback}else{'index'})"

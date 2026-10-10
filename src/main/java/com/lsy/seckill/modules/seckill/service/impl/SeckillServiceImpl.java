@@ -33,6 +33,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -388,13 +389,18 @@ public class SeckillServiceImpl implements SeckillService {
     }
 
     @Override
-    public int closeTimeoutOrdersAll(long timeoutSeconds, int batchSize) {
+    public int closeTimeoutOrdersAll(long timeoutSeconds, int batchSize, boolean batchRestock) {
         LocalDateTime deadline = LocalDateTime.now().minusSeconds(timeoutSeconds);
         List<Order> pendings = orderMapper.selectList(new LambdaQueryWrapper<Order>()
                 .eq(Order::getStatus, 0)
                 .le(Order::getCreateTime, deadline)
                 .orderByAsc(Order::getId)
                 .last("LIMIT " + batchSize));
+        return batchRestock ? closeBatchRestock(pendings) : closePerOrder(pendings);
+    }
+
+    /** 逐单回补：每单 1 次 markClosed + 1 次 restoreStock + 1 次 Redis INCR + 1 次 INSERT */
+    private int closePerOrder(List<Order> pendings) {
         int closed = 0;
         for (Order o : pendings) {
             if (orderMapper.markClosed(o.getId()) == 1) {
@@ -413,6 +419,48 @@ public class SeckillServiceImpl implements SeckillService {
             }
         }
         return closed;
+    }
+
+    /**
+     * ★ 批量回补：markClosed 仍逐单（保证条件更新的正确性），
+     * 但库存回补按活动**聚合**（1 次 UPDATE + 1 次 INCRBY/活动），流水一次性批量 INSERT。
+     */
+    private int closeBatchRestock(List<Order> pendings) {
+        List<Order> closedOrders = new ArrayList<>();
+        for (Order o : pendings) {
+            if (orderMapper.markClosed(o.getId()) == 1) {
+                closedOrders.add(o);
+            }
+        }
+        if (closedOrders.isEmpty()) {
+            return 0;
+        }
+        Map<Long, Integer> restockByActivity = new HashMap<>();
+        for (Order o : closedOrders) {
+            if (o.getActivityId() != null) {
+                restockByActivity.merge(o.getActivityId(), 1, Integer::sum);
+            }
+        }
+        for (Map.Entry<Long, Integer> e : restockByActivity.entrySet()) {
+            stockMapper.addStock(e.getKey(), e.getValue());
+            stringRedisTemplate.opsForValue().increment(stockKey(e.getKey()), e.getValue());
+        }
+        List<StockLog> logs = new ArrayList<>();
+        for (Order o : closedOrders) {
+            if (o.getActivityId() != null) {
+                StockLog stockLog = new StockLog();
+                stockLog.setActivityId(o.getActivityId());
+                stockLog.setUserId(o.getUserId());
+                stockLog.setOrderNo(o.getOrderNo());
+                stockLog.setChangeType(1);
+                stockLog.setQuantity(1);
+                logs.add(stockLog);
+            }
+        }
+        if (!logs.isEmpty()) {
+            stockLogMapper.insertBatch(logs);
+        }
+        return closedOrders.size();
     }
 
     private void safeCompensate(Long activityId, Long userId, String orderNo) {

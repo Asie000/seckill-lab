@@ -66,4 +66,5 @@ seckill:
       interval-ms: 60000        # 扫描间隔（fixedDelay）
       timeout-seconds: 900      # 超时阈值：创建超过该秒数仍未支付则关闭
       batch-size: 200           # 单次扫描上限
+      batch-restock: true       # true=批量回补(聚合) false=逐单回补（对比用）
       lock-ttl-seconds: 30      # 多实例互斥锁 TTL
