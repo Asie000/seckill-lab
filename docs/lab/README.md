@@ -22,6 +22,7 @@
 | `v4-ratelimit.md` | Redis 滑动窗口限流（含 member 撞车 bug 修复） |
 | `fault-injection.md` | 故障注入：停 Redis / 停 Kafka 的降级行为 |
 | `REPORT.md` | ★ 总报告：每一步贡献与代价 + 三个真实 bug |
+| `压测报告.md` | ★★ 完整压测报告（环境+配置+全部阶段数据 r0~r12） |
 | `r5-cache-breakdown.md` | 缓存击穿：互斥锁 vs 逻辑过期（补 Phase R） |
 | `r6-multilevel-cache.md` | 多级缓存：Caffeine + Redis（补 Phase R） |
 | `r6b-multilevel-cache-hardened.md` | 多级缓存加强：Redis 真实负载 + 容量 + 一致性（含 bug） |
