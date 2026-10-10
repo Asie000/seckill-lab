@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lsy.seckill.modules.order.mapper.OrderItemMapper">
+
+    <!--
+      按订单查明细并关联商品名。
+      r0-baseline：每条订单调用一次（N+1 的三次补查之一）。
+      r1-n1 会改为「按 orderId 集合批量查询」。
+    -->
+    <select id="selectByOrderIdWithGoods" resultType="com.lsy.seckill.modules.order.vo.OrderItemVO">
+        SELECT oi.goods_id AS goodsId,
+               g.name      AS goodsName,
+               oi.qty      AS qty,
+               oi.price    AS price
+        FROM order_item oi
+                 LEFT JOIN goods g ON g.id = oi.goods_id
+        WHERE oi.order_id = #{orderId}
+    </select>
+
+</mapper>

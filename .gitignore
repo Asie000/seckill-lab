@@ -36,6 +36,7 @@ jmeter.log
 *.jtl
 jmeter-report/
 report/
+bench/results/
 
 ### 参考资料（自带 .git，禁止提交） ###
 hm-dianping/

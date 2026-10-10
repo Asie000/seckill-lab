@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.lsy.seckill.common.exception.BusinessException;
 import com.lsy.seckill.common.result.ResultCode;
 import com.lsy.seckill.modules.goods.dto.GoodsCreateRequest;
+import com.lsy.seckill.modules.goods.dto.GoodsUpdateRequest;
 import com.lsy.seckill.modules.goods.entity.Goods;
 import com.lsy.seckill.modules.goods.mapper.GoodsMapper;
 import com.lsy.seckill.modules.goods.service.GoodsService;
@@ -42,5 +43,19 @@ public class GoodsServiceImpl implements GoodsService {
         goods.setStatus(1);
         goodsMapper.insert(goods);
         return goods.getId();
+    }
+
+    @Override
+    public void update(Long id, GoodsUpdateRequest request) {
+        Goods goods = goodsMapper.selectById(id);
+        if (goods == null) {
+            throw new BusinessException(ResultCode.GOODS_NOT_FOUND);
+        }
+        goods.setName(request.getName());
+        goods.setPrice(request.getPrice());
+        if (request.getStatus() != null) {
+            goods.setStatus(request.getStatus());
+        }
+        goodsMapper.updateById(goods);
     }
 }

@@ -3,6 +3,7 @@ package com.lsy.seckill.modules.goods.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.lsy.seckill.common.result.Result;
 import com.lsy.seckill.modules.goods.dto.GoodsCreateRequest;
+import com.lsy.seckill.modules.goods.dto.GoodsUpdateRequest;
 import com.lsy.seckill.modules.goods.entity.Goods;
 import com.lsy.seckill.modules.goods.service.GoodsService;
 import jakarta.validation.Valid;
@@ -10,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -43,5 +45,12 @@ public class GoodsController {
     @PostMapping
     public Result<Long> create(@Valid @RequestBody GoodsCreateRequest request) {
         return Result.ok(goodsService.create(request));
+    }
+
+    /** 更新商品（r3-cache 缓存一致性的落点） */
+    @PutMapping("/{id}")
+    public Result<Void> update(@PathVariable Long id, @Valid @RequestBody GoodsUpdateRequest request) {
+        goodsService.update(id, request);
+        return Result.ok();
     }
 }

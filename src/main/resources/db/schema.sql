@@ -71,26 +71,57 @@ CREATE TABLE `seckill_stock` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='秒杀库存表';
 
 -- ------------------------------------------------------------
--- 5. 秒杀订单表（状态机流转与防重屏障）
+-- 5. 订单主表（统一订单表：普通单 + 秒杀单，order_type 区分）
+--    设计文档 §3.1；原 seckill_order 并入本表
 -- ------------------------------------------------------------
-DROP TABLE IF EXISTS `seckill_order`;
-CREATE TABLE `seckill_order` (
-  `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '订单主键',
-  `order_no`    VARCHAR(64)     NOT NULL                COMMENT '唯一订单号',
-  `user_id`     BIGINT UNSIGNED NOT NULL                COMMENT '用户 ID',
-  `activity_id` BIGINT UNSIGNED NOT NULL                COMMENT '活动 ID',
-  `goods_id`    BIGINT UNSIGNED NOT NULL                COMMENT '商品 ID（冗余便于查询）',
-  `amount`      DECIMAL(10, 2)  NOT NULL                COMMENT '实付金额',
-  `status`      TINYINT         NOT NULL DEFAULT 0      COMMENT '0-待支付 1-已支付 2-已取消 3-超时关闭',
-  `pay_time`    DATETIME                 DEFAULT NULL   COMMENT '支付时间',
-  `version`     INT             NOT NULL DEFAULT 0      COMMENT '乐观锁版本号',
-  `create_time` DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_time` DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+DROP TABLE IF EXISTS `orders`;
+CREATE TABLE `orders` (
+  `id`           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '订单主键',
+  `order_no`     VARCHAR(64)     NOT NULL                COMMENT '唯一订单号',
+  `user_id`      BIGINT UNSIGNED NOT NULL                COMMENT '用户 ID',
+  `order_type`   TINYINT         NOT NULL DEFAULT 0      COMMENT '0-普通单 1-秒杀单',
+  `activity_id`  BIGINT UNSIGNED          DEFAULT NULL   COMMENT '秒杀活动 ID（仅秒杀单）',
+  `total_amount` DECIMAL(10, 2)  NOT NULL                COMMENT '实付金额',
+  `status`       TINYINT         NOT NULL DEFAULT 0      COMMENT '0-待支付 1-已支付 2-已取消 3-超时关闭',
+  `pay_time`     DATETIME                 DEFAULT NULL   COMMENT '支付时间',
+  `version`      INT             NOT NULL DEFAULT 0      COMMENT '乐观锁版本号（v3 支付用）',
+  `create_time`  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time`  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_order_no` (`order_no`),
-  KEY `idx_user_activity` (`user_id`, `activity_id`),   -- V0 基线为普通索引（暴露重复下单）；V1 升级为 UNIQUE 唯一索引
+  KEY `idx_user_activity` (`user_id`, `activity_id`),   -- V0 为普通索引（暴露重复下单）；v1 升级为 UNIQUE 唯一索引
+  KEY `idx_user_id` (`user_id`),
   KEY `idx_status_create` (`status`, `create_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='秒杀订单表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='统一订单主表';
+
+-- ------------------------------------------------------------
+-- 5b. 订单明细表（一单多商品 → 制造真实 N+1 场景）
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS `order_item`;
+CREATE TABLE `order_item` (
+  `id`        BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `order_id`  BIGINT UNSIGNED NOT NULL                COMMENT '订单 ID',
+  `goods_id`  BIGINT UNSIGNED NOT NULL                COMMENT '商品 ID',
+  `qty`       INT             NOT NULL DEFAULT 1      COMMENT '数量',
+  `price`     DECIMAL(10, 2)  NOT NULL                COMMENT '成交单价',
+  PRIMARY KEY (`id`),
+  KEY `idx_order_id` (`order_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单明细表';
+
+-- ------------------------------------------------------------
+-- 5c. 订单物流表（订单列表要展示物流状态 → N+1 的第三次补查）
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS `order_logistics`;
+CREATE TABLE `order_logistics` (
+  `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `order_id`    BIGINT UNSIGNED NOT NULL                COMMENT '订单 ID',
+  `company`     VARCHAR(64)              DEFAULT NULL   COMMENT '快递公司',
+  `tracking_no` VARCHAR(64)              DEFAULT NULL   COMMENT '运单号',
+  `status`      TINYINT         NOT NULL DEFAULT 0      COMMENT '0-待发货 1-已发货 2-运输中 3-已签收',
+  `create_time` DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_order_id` (`order_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单物流表';
 
 -- ------------------------------------------------------------
 -- 6. 库存变动流水表（异步对账、超时回补的核心证据链）

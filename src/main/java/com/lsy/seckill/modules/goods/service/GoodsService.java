@@ -2,6 +2,7 @@ package com.lsy.seckill.modules.goods.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.lsy.seckill.modules.goods.dto.GoodsCreateRequest;
+import com.lsy.seckill.modules.goods.dto.GoodsUpdateRequest;
 import com.lsy.seckill.modules.goods.entity.Goods;
 
 /**
@@ -31,4 +32,13 @@ public interface GoodsService {
      * @return 新商品 ID
      */
     Long create(GoodsCreateRequest request);
+
+    /**
+     * 更新商品
+     *
+     * <p>r3-cache 会在这个方法里加缓存删除（缓存一致性）。
+     *
+     * @throws com.lsy.seckill.common.exception.BusinessException 商品不存在时抛出
+     */
+    void update(Long id, GoodsUpdateRequest request);
 }
