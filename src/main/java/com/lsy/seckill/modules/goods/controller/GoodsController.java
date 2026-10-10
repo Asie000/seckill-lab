@@ -3,6 +3,7 @@ package com.lsy.seckill.modules.goods.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.lsy.seckill.common.result.Result;
 import com.lsy.seckill.modules.goods.cache.GoodsCacheService;
+import com.lsy.seckill.modules.goods.cache.HotGoodsService;
 import com.lsy.seckill.modules.goods.dto.GoodsCreateRequest;
 import com.lsy.seckill.modules.goods.dto.GoodsUpdateRequest;
 import com.lsy.seckill.modules.goods.entity.Goods;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -30,6 +32,7 @@ public class GoodsController {
 
     private final GoodsService goodsService;
     private final GoodsCacheService goodsCacheService;
+    private final HotGoodsService hotGoodsService;
 
     /** 分页查询商品列表 */
     @GetMapping
@@ -71,5 +74,34 @@ public class GoodsController {
     @PostMapping("/{id}/race-fixed")
     public Result<Map<String, Object>> raceFixed(@PathVariable Long id) throws InterruptedException {
         return Result.ok(goodsCacheService.simulateRaceFixed(id));
+    }
+
+    /** r5-cache-breakdown：热 key 读取（策略由 seckill.cache.breakdown 决定） */
+    @GetMapping("/{id}/hot")
+    public Result<Goods> hot(@PathVariable Long id) {
+        return Result.ok(hotGoodsService.get(id));
+    }
+
+    /** r5：清除热 key 缓存（压测前冷启动） */
+    @PostMapping("/{id}/hot/evict")
+    public Result<Void> hotEvict(@PathVariable Long id) {
+        hotGoodsService.evict(id);
+        return Result.ok();
+    }
+
+    /** r5：查看回源次数统计 */
+    @GetMapping("/hot/stats")
+    public Result<Map<String, Object>> hotStats() {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("mode", hotGoodsService.mode());
+        data.put("dbLoads", hotGoodsService.dbLoads());
+        return Result.ok(data);
+    }
+
+    /** r5：重置回源统计 */
+    @PostMapping("/hot/stats/reset")
+    public Result<Void> hotStatsReset() {
+        hotGoodsService.resetStats();
+        return Result.ok();
     }
 }

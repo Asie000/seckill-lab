@@ -22,6 +22,7 @@
 | `v4-ratelimit.md` | Redis 滑动窗口限流（含 member 撞车 bug 修复） |
 | `fault-injection.md` | 故障注入：停 Redis / 停 Kafka 的降级行为 |
 | `REPORT.md` | ★ 总报告：每一步贡献与代价 + 三个真实 bug |
+| `r5-cache-breakdown.md` | 缓存击穿：互斥锁 vs 逻辑过期（补 Phase R） |
 | `v0a-naive.md` … `v4-ratelimit.md` | （待做）Phase S 秒杀写侧各版本 |
 | `REPORT.md` | （最后写）总报告：每一步贡献与代价 |
 

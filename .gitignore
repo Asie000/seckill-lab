@@ -41,3 +41,7 @@ bench/results/
 ### 参考资料（自带 .git，禁止提交） ###
 hm-dianping/
 
+
+### 参考/临时文件（不入库） ###
+*.pdf
+_hmdp.txt
